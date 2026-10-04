@@ -47,13 +47,14 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
   border-bottom:1px solid rgba(232,190,14,.28);
 }
 .hero::before{
-  content:""; position:absolute; top:-120%; left:-30%; width:420px; height:420px;
+  content:""; position:absolute; width:820px; height:820px;
+  top:calc(50% - 410px); left:calc(34% - 410px);
   background:radial-gradient(closest-side, rgba(192,40,155,.42), transparent 70%);
 }
-.hero > *{position:relative}
+.hero-in{position:relative; max-width:612px; margin:0 auto}
+.hero .logo{position:absolute; inset-inline-start:0; top:50%; transform:translateY(-50%); height:46px; width:auto}
 .hero .eyebrow{color:var(--gold); font-weight:600; font-size:12.5px; letter-spacing:.34em}
-.hero h1{margin:8px 0 4px; font-weight:800; font-size:30px; line-height:1.1; color:#fff}
-.hero .sub{color:var(--ink2); font-size:13.5px}
+.hero h1{margin:8px 0 0; font-weight:800; font-size:30px; line-height:1.1; color:#fff}
 
 .wrap{max-width:640px; margin:0 auto; padding:0 14px 96px}
 
@@ -230,6 +231,8 @@ bdi{unicode-bidi:isolate}
 @media (max-width:420px){
   .bar-label{width:118px; min-width:118px; font-size:12.5px}
   .hero h1{font-size:26px}
+  .hero .logo{height:34px}
+  .hero .eyebrow{font-size:11px; letter-spacing:.28em}
   .tab,.pick{font-size:13px}
 }
 </style>
@@ -237,9 +240,11 @@ bdi{unicode-bidi:isolate}
 <body>
 
 <header class="hero">
-  <div class="eyebrow">ON THE TABLE</div>
-  <h1>ניהול לידים</h1>
-  <div class="sub">מגשי אירוח · מעודכן ישירות מול הטבלה</div>
+  <div class="hero-in">
+    <img class="logo" src="logo.png" alt="Shir Digital Marketing">
+    <div class="eyebrow">ON THE TABLE</div>
+    <h1>ניהול לידים</h1>
+  </div>
 </header>
 
 <main class="wrap">
