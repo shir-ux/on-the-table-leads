@@ -184,8 +184,13 @@ bdi{unicode-bidi:isolate}
   border-radius:24px 24px 0 0; padding:20px 18px 26px;
   border-top:1px solid rgba(232,190,14,.28);
 }
-.sheet h2{margin:0 0 2px; font-size:21px; font-weight:800; color:#fff}
-.sheet .sub{color:var(--mut); font-size:13px; margin-bottom:16px}
+.overlay.pop{z-index:50; align-items:center; padding:16px}
+.popbox{
+  background:var(--paper); width:100%; max-width:440px; max-height:92vh; overflow-y:auto;
+  border:1px solid rgba(232,190,14,.28); border-radius:22px; padding:20px 18px;
+}
+.sheet h2,.popbox h2{margin:0 0 2px; font-size:21px; font-weight:800; color:#fff}
+.sheet .sub,.popbox .sub{color:var(--mut); font-size:13px; margin-bottom:16px}
 .field{margin-bottom:14px}
 .field label,.field .label{
   display:block; font-size:12.5px; font-weight:600; color:var(--gold);
@@ -319,7 +324,7 @@ bdi{unicode-bidi:isolate}
     </div>
 
     <div class="field"><span class="label">סטטוס</span><div class="picks" id="pStatus" role="group" aria-label="סטטוס"></div><input type="hidden" id="fStatus"></div>
-    <div class="field"><span class="label">סיבת אי-סגירה</span><div class="picks" id="pReason" role="group" aria-label="סיבת אי-סגירה"></div><input type="hidden" id="fReason"></div>
+    <input type="hidden" id="fReason">
     <div class="field-row">
       <div class="field"><label for="fEvent">תאריך האירוע</label><input id="fEvent" type="date"></div>
       <div class="field"><label for="fFollow">תאריך פולואפ</label><input id="fFollow" type="date"></div>
@@ -331,6 +336,20 @@ bdi{unicode-bidi:isolate}
     <div class="sheet-btns">
       <button class="btn btn-save" id="saveBtn">שמירה</button>
       <button class="btn btn-cancel" id="cancelBtn">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- חלון "לא רלוונטי": סיבה + דיווח חובה לפני שמירה -->
+<div class="overlay pop" id="outPop" hidden>
+  <div class="popbox" role="dialog" aria-modal="true" aria-labelledby="outTitle">
+    <h2 id="outTitle">למה הליד לא רלוונטי?</h2>
+    <div class="sub">כדי לשמור צריך לבחור סיבה ולכתוב דיווח קצר</div>
+    <div class="field"><span class="label">סיבת אי-סגירה</span><div class="picks" id="pReason" role="group" aria-label="סיבת אי-סגירה"></div></div>
+    <div class="field"><label for="outNote">דיווח על הליד</label><textarea id="outNote" rows="3"></textarea></div>
+    <div class="sheet-btns">
+      <button class="btn btn-save" id="outSave" disabled>שמירה</button>
+      <button class="btn btn-cancel" id="outCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -522,12 +541,36 @@ function setPick(boxId, inputId, value){
   $(boxId).classList.toggle('has-on', !!value);
   $(boxId).querySelectorAll('.pick').forEach(b=>{ const on=b.dataset.v===value; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
 }
-[['pStatus','fStatus'],['pReason','fReason']].forEach(([boxId,inputId])=>{
-  $(boxId).addEventListener('click', e=>{
-    const b=e.target.closest('.pick'); if(!b) return;
-    setPick(boxId, inputId, $(inputId).value===b.dataset.v ? '' : b.dataset.v);
-    if(inputId==='fStatus' && $('fStatus').value===CLOSED_STATUS) $('fClosed').checked=true;
-  });
+$('pStatus').addEventListener('click', e=>{
+  const b=e.target.closest('.pick'); if(!b) return;
+  if(b.dataset.v===OUT_STATUS){ openOutPop(); return; }   // הסטטוס נקבע רק אחרי שמולאו סיבה ודיווח
+  setPick('pStatus','fStatus', $('fStatus').value===b.dataset.v ? '' : b.dataset.v);
+  if($('fStatus').value===CLOSED_STATUS) $('fClosed').checked=true;
+});
+$('pReason').addEventListener('click', e=>{
+  const b=e.target.closest('.pick'); if(!b) return;
+  setPick('pReason','fReason', $('fReason').value===b.dataset.v ? '' : b.dataset.v);
+  refreshOutSave();
+});
+
+/* ---------- "לא רלוונטי": סיבה + דיווח חובה ---------- */
+function refreshOutSave(){ $('outSave').disabled = !$('fReason').value || !$('outNote').value.trim(); }
+function openOutPop(){
+  fillPicks('pReason','fReason', state.reasons, $('fReason').value);
+  $('outNote').value = $('fNotes').value;
+  refreshOutSave();
+  $('outPop').hidden=false;
+}
+$('outNote').addEventListener('input', refreshOutSave);
+$('outCancel').addEventListener('click', ()=>{
+  $('outPop').hidden=true;
+  $('fReason').value = state.editing ? (state.editing.reason||'') : '';
+});
+$('outSave').addEventListener('click', ()=>{
+  $('fNotes').value = $('outNote').value.trim();
+  setPick('pStatus','fStatus', OUT_STATUS);
+  $('outPop').hidden=true;
+  $('saveBtn').click();
 });
 function openEdit(lead){
   state.editing=lead; state.adding=!lead;
@@ -535,7 +578,7 @@ function openEdit(lead){
   $('sheetTitle').textContent = lead ? lead.name||'(ללא שם)' : 'ליד חדש';
   $('sheetSub').textContent = lead ? fmtPhone(lead.phone)+(lead.created?' · הגיע '+fmtDate(lead.created):'') : 'הליד יתווסף גם לטבלה';
   fillPicks('pStatus','fStatus', state.statuses, lead ? lead.status : (state.statuses.includes('חדש')?'חדש':''));
-  fillPicks('pReason','fReason', state.reasons, lead?lead.reason:'');
+  $('fReason').value = lead ? (lead.reason||'') : '';
   if(!lead){ $('fName').value=''; $('fPhone').value=''; }
   $('fEvent').value = lead?toInputDate(lead.eventDate):'';
   $('fFollow').value = lead?toInputDate(lead.followup):'';
@@ -553,11 +596,16 @@ $('overlay').addEventListener('click', e=>{ if(e.target===$('overlay')) closeEdi
 $('saveBtn').addEventListener('click', async ()=>{
   const btn=$('saveBtn'); btn.disabled=true; btn.textContent='שומרת...';
   const fields={
-    eventDate:$('fEvent').value, status:$('fStatus').value, reason:$('fReason').value,
+    eventDate:$('fEvent').value, status:$('fStatus').value,
     notes:$('fNotes').value, followup:$('fFollow').value,
     closed:$('fClosed').checked, value:$('fValue').value
   };
+  /* סיבה נכתבת רק עם "לא רלוונטי". ליד שיוצא מהסטטוס הזה - הסיבה מתנקה.
+     בכל מקרה אחר לא נוגעים בעמודת הסיבה, כדי לא למחוק מידע קיים בשיטס. */
+  if(fields.status===OUT_STATUS) fields.reason=$('fReason').value;
+  else if(state.editing && state.editing.status===OUT_STATUS) fields.reason='';
   try{
+    if(fields.status===OUT_STATUS && (!fields.reason || !fields.notes.trim())){ openOutPop(); return; }
     let res;
     if(state.adding){
       const name=$('fName').value.trim(), phone=$('fPhone').value.trim();
