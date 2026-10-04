@@ -91,9 +91,39 @@ function listLeads() {
   return {
     ok: true,
     leads: leads,
-    statuses: readList(sheet, hr, LIST_COL_STATUSES),
-    reasons: readList(sheet, hr, LIST_COL_REASONS)
+    statuses: dropdownValues(sheet, hr, COL.status, LIST_COL_STATUSES),
+    reasons: dropdownValues(sheet, hr, COL.reason, LIST_COL_REASONS)
   };
+}
+
+// הרשימה נלקחת מהתפריט הנפתח עצמו (אימות הנתונים על התא הראשון בעמודה),
+// כי זה מה שאורטל רואה בשיטס - בין אם הערכים הוקלדו בתוך התפריט ובין אם הוא מפנה לטווח.
+// עמודות N/O נשארות רק כגיבוי למקרה שאין אימות נתונים על העמודה.
+function dropdownValues(sheet, hr, dataCol, listCol) {
+  var rule = sheet.getRange(hr + 1, dataCol).getDataValidation();
+  var out = [];
+  if (rule) {
+    var type = rule.getCriteriaType();
+    var args = rule.getCriteriaValues();
+    if (type === SpreadsheetApp.DataValidationCriteria.VALUE_IN_LIST) {
+      out = cleanList(args[0]);
+    } else if (type === SpreadsheetApp.DataValidationCriteria.VALUE_IN_RANGE) {
+      var rows = args[0].getDisplayValues();
+      var flat = [];
+      for (var i = 0; i < rows.length; i++) flat = flat.concat(rows[i]);
+      out = cleanList(flat);
+    }
+  }
+  return out.length ? out : readList(sheet, hr, listCol);
+}
+
+function cleanList(values) {
+  var out = [];
+  for (var i = 0; i < values.length; i++) {
+    var v = String(values[i] == null ? '' : values[i]).trim();
+    if (v && out.indexOf(v) === -1) out.push(v);
+  }
+  return out;
 }
 
 function readList(sheet, hr, col) {
