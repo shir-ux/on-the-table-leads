@@ -365,6 +365,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbw23hVet72TBIaXW-kwBbUi
 
 const CLOSED_STATUS = 'הזמנה נסגרה';
 const OUT_STATUS = 'לא רלוונטי';
+const CONTACT_STATUS = 'נוצר קשר ראשוני';
 const state = { pin:'', leads:[], statuses:[], reasons:[], tab:'leads', filter:'', search:'', editing:null, adding:false };
 const $ = id => document.getElementById(id);
 
@@ -407,7 +408,7 @@ function leadValue(l){ const n=Number(String(l.value||'').replace(/[^\d.\-]/g,''
    ערך שאין לו צבע מוגדר מקבל את צבע ברירת המחדל. */
 const DEFAULT_COLOR = '#B79CB4';
 const STATUS_COLORS = {
-  'חדש':'#C0289B', 'אין מענה 1':'#FF9A3D', 'אין מענה 2':'#FF9A3D', 'אין מענה 3':'#FF9A3D',
+  'חדש':'#C0289B', 'נוצר קשר ראשוני':'#7FD1FF', 'אין מענה 1':'#FF9A3D', 'אין מענה 2':'#FF9A3D', 'אין מענה 3':'#FF9A3D',
   'מעוניינת - לחזור בהמשך':'#B694FF', 'נשלחה הצעה':'#F3A6DD',
   'הזמנה נסגרה':'#E8BE0E', 'לא רלוונטי':'#8E7F93'
 };
@@ -451,7 +452,7 @@ function leadCard(l){
     (rows.length?'<div class="lead-rows">'+rows.join('')+'</div>':'')+
     (l.notes?'<div class="lead-note">'+esc(l.notes)+'</div>':'')+
     '<div class="lead-actions">'+
-      (digits?'<a class="act" href="tel:'+digits+'" onclick="event.stopPropagation()">📞 חיוג</a>':'')+
+      (digits?'<a class="act" href="tel:'+digits+'" data-call="'+l.row+'">📞 חיוג</a>':'')+
       (digits?'<a class="act" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">💬 וואטסאפ</a>':'')+
       '<button class="act primary" data-edit="'+l.row+'">עדכון ליד</button>'+
     '</div></div>';
@@ -643,7 +644,28 @@ $('statusChips').addEventListener('click', e=>{
   const c=e.target.closest('.chip'); if(!c) return;
   state.filter=c.dataset.f; renderChips(); renderLeads();
 });
+/* לחיצה על "חיוג" מסמנת אוטומטית "נוצר קשר ראשוני" - רק לליד שעוד לא טופל (בלי סטטוס או "חדש"),
+   כדי שחיוג חוזר לליד מתקדם לא יחזיר אותו אחורה. החיוג עצמו לא מתעכב בגלל העדכון. */
+async function markContacted(lead){
+  if(lead.status && lead.status!=='חדש') return;
+  if(!state.statuses.includes(CONTACT_STATUS)) return;
+  try{
+    const res=await api('update',{row:lead.row, expect:{name:lead.name, phone:lead.phone}, fields:{status:CONTACT_STATUS}});
+    if(res.ok){ lead.status=CONTACT_STATUS; renderAll(); toast('סטטוס עודכן: '+CONTACT_STATUS,'ok'); }
+    else if(res.error==='bad_pin') logout();
+    else await loadLeads(false);
+  }catch(err){
+    toast('החיוג יצא, אבל הסטטוס לא עודכן - אין חיבור','bad');
+  }
+}
+
 document.addEventListener('click', e=>{
+  const call=e.target.closest('[data-call]');
+  if(call){
+    const called=state.leads.find(l=>l.row===+call.dataset.call);
+    if(called) markContacted(called);
+    return;
+  }
   const btn=e.target.closest('[data-edit]');
   const card=e.target.closest('.lead');
   const row = btn ? +btn.dataset.edit : (card ? +card.dataset.row : null);
