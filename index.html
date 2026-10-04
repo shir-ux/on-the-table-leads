@@ -65,10 +65,11 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
   grid-template-columns:repeat(3,minmax(0,1fr)); margin:-20px auto 16px; position:relative; max-width:612px;
 }
 .tab{
-  border:0; background:none; border-radius:16px; height:46px; padding:0 6px;
+  border:0; background:none; border-radius:16px; height:46px; padding:0 4px;
   font-weight:500; font-size:14px; line-height:1.15; color:rgba(239,227,238,.55);
   display:flex; align-items:center; justify-content:center; gap:5px; text-align:center;
 }
+.tab .ico{width:18px; height:18px; flex-shrink:0}
 .tab.active{
   background:var(--gold); color:var(--bg); font-weight:700;
   box-shadow:0 0 18px rgba(232,190,14,.35);
@@ -90,7 +91,9 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
 }
 .pick.on::before{content:"✓"; font-weight:800}
 .picks.has-on .pick:not(.on){opacity:.72}
+.tab{position:relative; white-space:nowrap}
 .tab .badge{
+  position:absolute; top:-5px; inset-inline-end:-2px;
   display:inline-flex; align-items:center; justify-content:center;
   min-width:18px; height:18px; border-radius:9px; padding:0 5px;
   background:var(--mag); color:#fff; font-size:11px; font-weight:800;
@@ -249,7 +252,8 @@ bdi{unicode-bidi:isolate}
   .hero h1{font-size:26px}
   .hero .logo{height:34px}
   .hero .eyebrow{font-size:11px; letter-spacing:.28em}
-  .tab{font-size:13px}
+  .tab{font-size:12.5px; gap:4px}
+  .tab .ico{width:16px; height:16px}
   .pick{font-size:14px}
 }
 </style>
@@ -278,9 +282,9 @@ bdi{unicode-bidi:isolate}
   <!-- אפליקציה -->
   <section id="appView" hidden>
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="leads" role="tab">לידים</button>
-      <button class="tab" data-tab="follow" role="tab">פולואפ להיום <span class="badge" id="followBadge" hidden></span></button>
-      <button class="tab" data-tab="summary" role="tab">סיכום</button>
+      <button class="tab active" data-tab="leads" role="tab">לידים<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0v1H2v-1Zm15-9.5a3.5 3.5 0 1 0-1.6-6.6 6 6 0 0 1 0 6.2c.5.25 1 .4 1.6.4Zm1 10.5v-1a8.9 8.9 0 0 0-2.2-5.9A6 6 0 0 1 22 20v1h-4Z"/></svg></button>
+      <button class="tab" data-tab="follow" role="tab">פולואפ להיום<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01M16 17.5h.01"/></svg><span class="badge" id="followBadge" hidden></span></button>
+      <button class="tab" data-tab="summary" role="tab">סיכום<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 21V11M10 21V4M15 21v-7M20 21V8"/></svg></button>
     </nav>
 
     <!-- לשונית לידים -->
