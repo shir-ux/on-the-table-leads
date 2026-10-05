@@ -167,6 +167,22 @@ button.round{padding:0; cursor:pointer}
 .lp-head{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:end; margin:16px 0 14px}
 .lp-name{font-weight:800; font-size:27px; line-height:1.15; color:#fff; overflow-wrap:anywhere; padding-bottom:6px}
 .lp-side{display:flex; flex-direction:column; align-items:flex-end; gap:10px}
+/* שתי הלשוניות בעמוד הליד - אותו מראה כמו הלשוניות הראשיות */
+.ltabs{
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; background:var(--well);
+  border-radius:20px; padding:6px; box-shadow:var(--ring); margin-bottom:14px;
+}
+.ltab{
+  position:relative; border:0; background:none; border-radius:14px; height:44px; padding:0 4px;
+  font-family:inherit; font-weight:500; font-size:14.5px; color:rgba(239,227,238,.55);
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.ltab.active{background:var(--gold); color:var(--bg); font-weight:700; box-shadow:0 0 18px rgba(232,190,14,.35)}
+.ltab .badge{
+  display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; border-radius:10px;
+  padding:0 6px; background:var(--mag); color:#fff; font-size:11.5px; font-weight:800;
+}
+.lp-newtask{justify-content:center; margin-bottom:12px}
 .lp-sec{color:#fff; font-weight:700; font-size:15px; margin:0 0 2px}
 .lp-rows + .lp-sec{margin-top:20px}
 .lp-row{
@@ -481,6 +497,11 @@ span.tag.who{cursor:default}
       <div class="lp-name" id="lpName"></div>
       <div class="lp-side"><span id="lpPill"></span><div class="lead-btns" id="lpBtns"></div></div>
     </div>
+    <nav class="ltabs" role="tablist">
+      <button type="button" class="ltab active" data-lptab="details" role="tab">פרטים</button>
+      <button type="button" class="ltab" data-lptab="tasks" role="tab">משימות<span class="badge" id="lpTaskBadge" hidden></span></button>
+    </nav>
+    <div id="lpTabDetails">
     <div class="card" id="lpDetails"></div>
     <div class="card">
       <div class="lf-label" id="lpDocLabel"></div>
@@ -498,6 +519,11 @@ span.tag.who{cursor:default}
     <div class="card">
       <h3 class="lp-h">היסטוריה</h3>
       <div id="lpHistory"></div>
+    </div>
+    </div>
+    <div id="lpTabTasks" hidden>
+      <button type="button" class="doc-btn lp-newtask" id="lpNewTask">משימה חדשה</button>
+      <div id="lpTasks"></div>
     </div>
   </div>
 </div>
@@ -815,11 +841,12 @@ function taskItems(){
 }
 /* שורת משימה, לפי הסדר: סימון | שם המשימה | שם הלקוחה (תגית) | דדליין | כרטיס הליד | חיוג.
    כפתור הכרטיס והתגית פותחים את אותו עמוד ליד שנפתח מרשימת הלידים. */
-function taskRow(t){
+function taskRow(t, inLeadPage){
   const lead = t.kind==='follow' ? state.leads.find(l=>String(l.row)===t.key) : leadByPhone(t.phone);
   const digits=phoneDigits(t.phone);
   const d=parseDate(t.due), late=d && d<today0();
-  const who = t.name ? (lead
+  // בתוך עמוד הליד אין צורך בשם הלקוחה, בקישור לכרטיס או בחיוג - הם כבר בראש העמוד
+  const who = inLeadPage ? '' : t.name ? (lead
     ? '<button type="button" class="tag who" data-open="'+lead.row+'">'+esc(t.name)+'</button>'
     : '<span class="tag who">'+esc(t.name)+'</span>') : '';
   const due = d ? '<span class="tdue num'+(late?' late':'')+'">'+ICON.cal+esc(dueText(t.due))+'</span>' : '';
@@ -827,11 +854,15 @@ function taskRow(t){
     '<button type="button" class="tcheck" data-done aria-label="סימון כבוצע">'+ICON.check+'</button>'+
     '<div class="tbody"><div class="ttext">'+esc(t.text)+(t.sub?'<div class="tmeta">'+esc(t.sub)+'</div>':'')+'</div>'+
       (who||due ? '<div class="tline">'+who+due+'</div>' : '')+'</div>'+
-    '<div class="tacts">'+
+    (inLeadPage ? '' : '<div class="tacts">'+
       (lead?'<button type="button" class="round" data-open="'+lead.row+'" aria-label="פתיחת כרטיס הליד">'+ICON.card+'</button>':'')+
       (digits?'<a class="round" href="tel:'+digits+'"'+(lead?' data-call="'+lead.row+'"':'')+' aria-label="חיוג">'+ICON.phone+'</a>':'')+
-    '</div>'+
+    '</div>')+
   '</div>';
+}
+function leadTasks(l){
+  const d=phoneDigits(l.phone);
+  return taskItems().filter(t=> t.kind==='follow' ? t.key===String(l.row) : (d && phoneDigits(t.phone)===d));
 }
 function renderTasks(){
   const all=taskItems(), t0=+today0(), t1=t0+86400000;
@@ -1060,6 +1091,14 @@ $('dtCancel').addEventListener('click', ()=>{ $('dtPop').hidden=true; });
    נפתח בלחיצה על שם הליד. מציג את כל פרטי הליד, מאפשר לתעד (אותו חלון סטטוסים),
    להוסיף תגובה, ולראות את ההיסטוריה. ההיסטוריה נטענת רק כשפותחים ליד, כדי שהרשימה תישאר מהירה. */
 state.viewRow=null;
+state.viewTab='details';
+function showLeadTab(name){
+  state.viewTab=name;
+  document.querySelectorAll('.ltab').forEach(b=>b.classList.toggle('active', b.dataset.lptab===name));
+  $('lpTabDetails').hidden = name!=='details';
+  $('lpTabTasks').hidden = name!=='tasks';
+}
+document.querySelectorAll('.ltab').forEach(b=>b.addEventListener('click', ()=>showLeadTab(b.dataset.lptab)));
 function viewedLead(){ return state.viewRow==null ? null : state.leads.find(l=>l.row===state.viewRow); }
 /* שורת פרט בעמוד הליד: תווית מימין, ערך משמאל. ערך ריק - השורה לא מוצגת. */
 function lpRow(icon, label, valueHtml){
@@ -1083,6 +1122,10 @@ function renderLeadPage(){
     (digits?'<a class="round wa" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" aria-label="וואטסאפ">'+ICON.wa+'</a>':'')+
     (digits?'<a class="round" href="tel:'+digits+'" data-call="'+l.row+'" aria-label="חיוג">'+ICON.phone+'</a>':'')+
     '<button type="button" class="round" data-task="'+l.row+'" aria-label="הוספת משימה">'+ICON.taskAdd+'</button>';
+  const mine=leadTasks(l), badge=$('lpTaskBadge');
+  badge.hidden=!mine.length; badge.textContent=mine.length;
+  $('lpTasks').innerHTML = mine.length ? mine.map(t=>taskRow(t, true)).join('') :
+    '<div class="empty">אין משימות פתוחות ללקוחה הזו.</div>';
   $('lpDocLabel').innerHTML=ICON.flag+'סטטוס';
   $('lpFollowLabel').innerHTML=ICON.cal+'תאריך ושעת מעקב';
   const fb=$('lpFollow'), fd=toInputDate(l.followup), ft=toInputTime(l.followup);
@@ -1122,6 +1165,7 @@ async function loadHistory(){
 }
 function openLeadPage(lead){
   state.viewRow=lead.row;
+  showLeadTab('details');
   $('lpComment').value=''; $('lpSend').disabled=true;
   $('lpHistory').innerHTML='<div class="loading"><span class="spin"></span>טוענת היסטוריה...</div>';
   renderLeadPage();
@@ -1134,6 +1178,7 @@ function closeLeadPage(){
   $('addBtn').hidden=$('appView').hidden;
 }
 $('lpBack').addEventListener('click', closeLeadPage);
+$('lpNewTask').addEventListener('click', ()=>{ const l=viewedLead(); if(l) openTaskPop(l); });
 $('lpDoc').addEventListener('click', ()=>{ const l=viewedLead(); if(l) openEdit(l); });
 $('lpComment').addEventListener('input', ()=>{ $('lpSend').disabled=!$('lpComment').value.trim(); });
 /* תגובה = הערה חדשה על הליד: נרשמת בהיסטוריה, ונשמרת גם כ"הערה אחרונה" בגיליון הלידים */
