@@ -162,6 +162,7 @@ button.round{padding:0; cursor:pointer}
 .lp-item.wide{grid-column:1 / -1}
 .lp-k{color:var(--gold); font-size:12px; font-weight:600; letter-spacing:.06em; margin-bottom:2px}
 .lp-v{color:var(--ink); font-size:15px; overflow-wrap:anywhere}
+.lp-gap{margin-top:16px}
 .lp-h{color:#fff; font-weight:700; font-size:16px; margin:0 0 12px}
 .lp-add{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start}
 .lp-add textarea{min-height:48px; resize:vertical}
@@ -424,7 +425,12 @@ button.round{padding:0; cursor:pointer}
     <div class="lp-name" id="lpName"></div>
     <div class="lp-top"><span id="lpPill"></span><div class="lead-btns" id="lpBtns"></div></div>
     <div class="card"><div class="lp-grid" id="lpDetails"></div></div>
-    <div class="card"><button type="button" class="doc-btn" id="lpDoc">תיעוד ליד</button></div>
+    <div class="card">
+      <div class="lf-label" id="lpDocLabel"></div>
+      <button type="button" class="doc-btn" id="lpDoc">תיעוד ליד</button>
+      <div class="lf-label lp-gap" id="lpFollowLabel"></div>
+      <button type="button" class="dtf" id="lpFollow" data-dt data-date="" data-time=""><span></span></button>
+    </div>
     <div class="card">
       <h3 class="lp-h">הוספת תגובה</h3>
       <div class="lp-add">
@@ -938,6 +944,21 @@ function applyDt(date, time){
   $('dtPop').hidden=true;
   const card=b.closest('.lead');                 // בחלון "משימה חדשה" אין כרטיס - שם התאריך נשמר עם המשימה
   if(card){ state.dirty=true; autoSaveCard(card); }
+  else if(b.id==='lpFollow') saveLeadPageFollow(date, date?time:'');
+}
+/* תאריך המעקב בעמוד הליד נשמר מיד באישור, כמו בכרטיס שברשימה */
+async function saveLeadPageFollow(date, time){
+  const l=viewedLead(); if(!l) return;
+  const fields=onlyChanged({ followup:joinFollow(date,time) }, l);
+  if(!Object.keys(fields).length) return;
+  try{
+    const res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields});
+    if(res.ok){ l.followup=toSheetFollow(fields.followup); renderAll(); toast('נשמר ✓','ok'); }
+    else if(res.error==='bad_pin') logout();
+    else{ toast('לא נשמר - הרשימה רועננה, נסי שוב','bad'); await loadLeads(false); }
+  }catch(err){
+    toast('לא נשמר - אין חיבור. נסי שוב','bad'); renderLeadPage();
+  }
 }
 function shiftMonth(by){ const d=new Date(dtp.y, dtp.m+by, 1); dtp.y=d.getFullYear(); dtp.m=d.getMonth(); renderDt(); }
 $('dtPrev').addEventListener('click', ()=>shiftMonth(-1));
@@ -969,13 +990,18 @@ function renderLeadPage(){
     (digits?'<a class="round wa" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" aria-label="וואטסאפ">'+ICON.wa+'</a>':'')+
     (digits?'<a class="round" href="tel:'+digits+'" data-call="'+l.row+'" aria-label="חיוג">'+ICON.phone+'</a>':'')+
     '<button type="button" class="round" data-task="'+l.row+'" aria-label="הוספת משימה">'+ICON.taskAdd+'</button>';
+  $('lpDocLabel').innerHTML=ICON.flag+'סטטוס';
+  $('lpFollowLabel').innerHTML=ICON.cal+'תאריך ושעת מעקב';
+  const fb=$('lpFollow'), fd=toInputDate(l.followup), ft=toInputTime(l.followup);
+  fb.dataset.date=fd; fb.dataset.time=ft;
+  fb.classList.toggle('due', needsFollow(l));
+  fb.innerHTML=ICON.cal+'<span>'+esc(followLabel(fd, ft))+'</span>';
   $('lpDetails').innerHTML=
     lpItem('טלפון', fmtPhone(l.phone))+
     lpItem('תאריך פנייה', l.created)+
     lpItem('קמפיין', l.campaign, true)+
     lpItem('קהל', l.audience, true)+
     lpItem('מודעה', l.ad, true)+
-    lpItem('תאריך מעקב', l.followup ? dueText(l.followup) : '')+
     lpItem('שווי הזמנה', leadValue(l)>0 ? money(leadValue(l)) : '')+
     lpItem('סיבת אי-סגירה', isOut(l) ? l.reason : '', true)+
     lpItem('הערה אחרונה', l.notes, true);
