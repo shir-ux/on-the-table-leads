@@ -162,17 +162,19 @@ button.round{padding:0; cursor:pointer}
 .lp-sec{color:#fff; font-weight:700; font-size:15px; margin:0 0 2px}
 .lp-rows + .lp-sec{margin-top:20px}
 .lp-row{
-  display:grid; grid-template-columns:118px minmax(0,1fr); gap:12px; align-items:center;
-  padding:11px 0; border-bottom:1px solid var(--line);
+  display:grid; grid-template-columns:84px minmax(0,1fr); gap:10px; align-items:center;
+  padding:9px 0; border-bottom:1px solid var(--line);
 }
 .lp-rows .lp-row:last-child{border-bottom:0}
 .lp-k{display:flex; align-items:center; gap:8px; color:var(--mut); font-size:13.5px}
 .lp-k .ico{width:17px; height:17px; color:var(--gold)}
-.lp-v{color:#fff; font-size:15.5px; font-weight:500; overflow-wrap:anywhere}
-.tags{display:flex; flex-wrap:wrap; gap:6px}
+.lp-v{color:#fff; font-size:14.5px; font-weight:500; overflow-wrap:anywhere; min-width:0}
+/* התגיות תמיד בשורה אחת. אם הן לא נכנסות ברוחב המסך - גוללים אותן הצידה באצבע. */
+.tags{display:flex; flex-wrap:nowrap; gap:5px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+.tags::-webkit-scrollbar{display:none}
 .tag{
-  background:var(--paper2); border:1px solid var(--line); border-radius:99px;
-  padding:3px 11px; font-size:13.5px; font-weight:400; color:var(--ink);
+  flex-shrink:0; background:var(--paper2); border:1px solid var(--line); border-radius:99px;
+  padding:2px 9px; font-size:12.5px; font-weight:400; color:var(--ink); white-space:nowrap;
 }
 .lp-note{
   margin-top:18px; background:var(--paper2); border-inline-start:3px solid var(--gold); border-radius:0;
@@ -1032,9 +1034,9 @@ function renderLeadPage(){
   $('lpDetails').innerHTML=
     lpGroup('פרטי הליד',
       lpRow(ICON.phone, 'טלפון', digits ? '<span class="num">'+esc(fmtPhone(l.phone))+'</span>' : '')+
-      lpRow(ICON.cal, 'הגיע בתאריך', l.created ? '<span class="num">'+esc(parseDate(l.created) ? dueText(l.created) : l.created)+'</span>' : '')+
-      lpRow(ICON.check, 'שווי הזמנה', leadValue(l)>0 ? '<span class="num">'+esc(money(leadValue(l)))+'</span>' : '')+
-      lpRow(ICON.flag, 'סיבת אי-סגירה', isOut(l) && l.reason ? esc(l.reason) : ''))+
+      lpRow(ICON.cal, 'הגיע', l.created ? '<span class="num">'+esc(parseDate(l.created) ? dueText(l.created) : l.created)+'</span>' : '')+
+      lpRow(ICON.check, 'שווי', leadValue(l)>0 ? '<span class="num">'+esc(money(leadValue(l)))+'</span>' : '')+
+      lpRow(ICON.flag, 'סיבה', isOut(l) && l.reason ? esc(l.reason) : ''))+
     lpGroup('מאיפה הגיע',
       lpRow(ICON.flag, 'קמפיין', tagList(l.campaign))+
       lpRow(ICON.users, 'קהל', tagList(l.audience))+
