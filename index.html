@@ -51,18 +51,18 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
   top:calc(50% - 410px); left:calc(34% - 410px);
   background:radial-gradient(closest-side, rgba(192,40,155,.42), transparent 70%);
 }
-.hero-in{position:relative; max-width:612px; margin:0 auto}
+.hero-in{position:relative; max-width:1012px; margin:0 auto}
 .hero .logo{position:absolute; inset-inline-start:0; top:50%; transform:translateY(-50%); height:46px; width:auto}
 .hero .eyebrow{color:var(--gold); font-weight:600; font-size:12.5px; letter-spacing:.34em}
 .hero h1{margin:8px 0 0; font-weight:800; font-size:30px; line-height:1.1; color:#fff}
 
-.wrap{max-width:640px; margin:0 auto; padding:0 14px 96px}
+.wrap{max-width:1040px; margin:0 auto; padding:0 14px 96px}
 
 /* ---------- segmented switch: לשוניות + בחירת סטטוס ---------- */
 .tabs{
   display:grid; gap:6px; background:var(--well); border-radius:22px; padding:6px;
   box-shadow:var(--ring);
-  grid-template-columns:repeat(3,minmax(0,1fr)); margin:-20px auto 16px; position:relative; max-width:612px;
+  grid-template-columns:repeat(3,minmax(0,1fr)); margin:-20px auto 16px; position:relative; max-width:612px; /* הלשוניות נשארות צרות גם במסך רחב */
 }
 .tab{
   border:0; background:none; border-radius:16px; height:46px; padding:0 4px;
@@ -110,37 +110,71 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
 
 /* ---------- cards ---------- */
 .card{
-  background:var(--paper); border:1px solid var(--line); border-radius:var(--r);
-  padding:15px 16px; margin-bottom:10px;
+  background:var(--paper); border:1px solid rgba(192,40,155,.35); border-radius:22px;
+  padding:16px; margin-bottom:12px;
 }
-.lead{cursor:pointer}
-.lead-top{display:flex; align-items:flex-start; justify-content:space-between; gap:8px}
-.lead-name{font-weight:700; font-size:17px; color:#fff}
-.lead-meta{color:var(--mut); font-size:12.5px; margin-top:1px}
-.lead-meta span{white-space:nowrap}
+.ico{width:18px; height:18px; flex-shrink:0}
 bdi{unicode-bidi:isolate}
+
+/* כרטיס ליד: זהות | טופס מהיר | פעולות. בנייד נערם לשתי שורות. */
+.lead{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px 12px; align-items:start}
+.lead-id{min-width:0}
+.lead-date{display:flex; align-items:center; gap:7px; color:var(--ink2); font-size:13.5px}
+.lead-name{font-weight:800; font-size:21px; line-height:1.2; color:#fff; margin:6px 0 4px; overflow-wrap:anywhere}
+.lead-phone{display:flex; align-items:center; gap:7px; color:var(--ink); font-size:16px}
+.lead-extra{color:var(--mut); font-size:12.5px; margin-top:6px}
+.lead-extra span{white-space:nowrap}
+.lead-extra .overdue{color:var(--orange); font-weight:500}
+
+/* תווית סטטוס - ניאון: מילוי בצבע הסטטוס + הילה באותו צבע */
 .pill{
-  display:inline-block; border-radius:99px; padding:5px 12px; font-size:12.5px; font-weight:600;
-  white-space:nowrap; flex-shrink:0;
+  display:inline-block; border-radius:99px; padding:6px 16px; margin-top:10px;
+  font-size:13.5px; font-weight:800; white-space:nowrap;
+  background:var(--c); color:var(--on);
+  box-shadow:0 0 6px var(--c), 0 0 18px color-mix(in srgb, var(--c) 65%, transparent);
 }
-.pill{background:var(--c); color:var(--on); font-weight:700}
-.lead-rows{display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:10px; font-size:13.5px; color:var(--ink2)}
-.lead-rows .lbl{color:var(--mut); margin-inline-end:4px}
-.lead-rows b{color:#fff; font-weight:600}
-.lead-note{
-  margin-top:10px; background:var(--paper2); border-radius:0; padding:7px 11px;
-  font-size:13px; color:var(--ink2); border-inline-start:3px solid var(--gold);
-  white-space:pre-wrap; overflow-wrap:anywhere;
+
+.lead-side{display:flex; flex-direction:column; gap:10px}
+.round{
+  width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--paper2); border:1px solid var(--line); color:#fff; text-decoration:none;
 }
-.lead-actions{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:12px}
-.act{
-  display:flex; align-items:center; justify-content:center; gap:6px; height:42px;
-  border:1px solid var(--line); background:var(--paper2); border-radius:12px; padding:0 4px;
-  font-size:13.5px; font-weight:500; color:var(--ink); text-decoration:none;
+.round .ico{width:22px; height:22px}
+.round.wa{color:#3DDC6A}
+
+.lead-form{
+  grid-column:1 / -1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 10px;
+  border-top:1px solid var(--line); padding-top:14px;
 }
-.act.primary{background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:700}
-.overdue{color:var(--orange); font-weight:500}
-.overdue b{color:var(--orange)}
+.lf{min-width:0}
+.lf.wide{grid-column:1 / -1}
+.lf-label{display:flex; align-items:center; gap:7px; color:var(--ink2); font-size:13.5px; margin-bottom:7px}
+.lf input{height:48px; border-radius:14px; background:var(--paper2)}
+.lf input.due{border-color:var(--orange)}
+.doc-btn{
+  width:100%; height:48px; border:0; border-radius:14px; padding:0 16px;
+  background:var(--gold); color:var(--bg); font-weight:800; font-size:16px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  box-shadow:0 0 18px rgba(232,190,14,.3);
+}
+.lf-save{
+  grid-column:1 / -1; justify-self:start; border:0; background:none; padding:2px 0;
+  color:var(--ink2); font-size:15px; font-weight:500; display:flex; align-items:center; gap:7px;
+}
+.lf-save:disabled{opacity:.5}
+
+@media (min-width:900px){
+  .lead{grid-template-columns:minmax(220px,1fr) minmax(0,2.4fr) auto; gap:0 22px; align-items:center; padding:22px 24px}
+  .lead-id{text-align:center}
+  .lead-date,.lead-phone{justify-content:center}
+  .lead-name{font-size:24px}
+  .lead-form{
+    grid-column:auto; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 16px;
+    border-top:0; padding-top:0; border-inline:1px solid var(--line); padding-inline:22px;
+  }
+  .lf.wide{grid-column:auto}
+  .lead-side{order:3}
+}
 
 .section-title{
   display:flex; align-items:center; gap:8px; margin:18px 2px 8px;
@@ -361,7 +395,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbw23hVet72TBIaXW-kwBbUi
 const CLOSED_STATUS = 'הזמנה נסגרה';
 const OUT_STATUS = 'לא רלוונטי';
 const CONTACT_STATUS = 'נוצר קשר ראשוני';
-const state = { pin:'', leads:[], statuses:[], reasons:[], statusColors:{}, reasonColors:{}, tab:'leads', filter:'', search:'', editing:null, adding:false };
+const state = { pin:'', leads:[], statuses:[], reasons:[], statusColors:{}, reasonColors:{}, dirty:false, tab:'leads', filter:'', search:'', editing:null, adding:false };
 const $ = id => document.getElementById(id);
 
 /* ---------- API ---------- */
@@ -439,24 +473,44 @@ function toast(msg, kind){
 }
 
 /* ---------- rendering ---------- */
+const ICON = {
+  cal:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4M8 15h.01M12 15h.01"/></svg>',
+  phone:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.37 2.3.57 3.6.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1.02L6.6 10.8Z"/></svg>',
+  flag:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 5h13l-2.5 4L18 13H5"/></svg>',
+  note:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/></svg>',
+  check:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  chev:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  wa:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'
+};
+
 function leadCard(l){
-  const followFlag = needsFollow(l);
-  const rows=[];
-  if(l.eventDate) rows.push('<span><span class="lbl">אירוע:</span><b class="num">'+esc(fmtDate(l.eventDate))+'</b></span>');
-  if(l.followup) rows.push('<span'+(followFlag?' class="overdue"':'')+'><span class="lbl">פולואפ:</span><b class="num">'+esc(fmtDate(l.followup))+'</b>'+(followFlag?' ⏰':'')+'</span>');
-  if(leadValue(l)>0) rows.push('<span><span class="lbl">שווי:</span><b class="num">'+esc(money(leadValue(l)))+'</b></span>');
-  if(l.reason && !isClosed(l)) rows.push('<span><span class="lbl">סיבה:</span>'+esc(l.reason)+'</span>');
+  const extra=[];
+  if(l.ad) extra.push('<span><bdi>'+esc(l.ad)+'</bdi></span>');
+  if(l.eventDate) extra.push('<span>אירוע '+esc(fmtDate(l.eventDate))+'</span>');
+  if(leadValue(l)>0) extra.push('<span>שווי '+esc(money(leadValue(l)))+'</span>');
+  if(l.reason && isOut(l)) extra.push('<span>סיבה: '+esc(l.reason)+'</span>');
   const digits = phoneDigits(l.phone);
+  const status = l.status||'חדש';
   return '<div class="card lead" data-row="'+l.row+'">'+
-    '<div class="lead-top"><div><div class="lead-name">'+esc(l.name||'(ללא שם)')+'</div>'+
-    '<div class="lead-meta num"><span>'+esc(fmtPhone(l.phone))+'</span>'+(l.created?' · <span>הגיע '+esc(fmtDate(l.created))+'</span>':'')+(l.ad?' · <span><bdi>'+esc(l.ad)+'</bdi></span>':'')+'</div></div>'+
-    '<span class="pill" '+colorStyle('status', l.status||'חדש')+'>'+esc(l.status||'חדש')+'</span></div>'+
-    (rows.length?'<div class="lead-rows">'+rows.join('')+'</div>':'')+
-    (l.notes?'<div class="lead-note">'+esc(l.notes)+'</div>':'')+
-    '<div class="lead-actions">'+
-      (digits?'<a class="act" href="tel:'+digits+'" data-call="'+l.row+'">📞 חיוג</a>':'')+
-      (digits?'<a class="act" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">💬 וואטסאפ</a>':'')+
-      '<button class="act primary" data-edit="'+l.row+'">עדכון ליד</button>'+
+    '<div class="lead-id">'+
+      (l.created?'<div class="lead-date num">'+ICON.cal+esc(fmtDate(l.created))+'</div>':'')+
+      '<div class="lead-name">'+esc(l.name||'(ללא שם)')+'</div>'+
+      (digits?'<div class="lead-phone num">'+ICON.phone+esc(fmtPhone(l.phone))+'</div>':'')+
+      '<span class="pill" '+colorStyle('status', status)+'>'+esc(status)+'</span>'+
+      (extra.length?'<div class="lead-extra num">'+extra.join(' · ')+'</div>':'')+
+    '</div>'+
+    '<div class="lead-side">'+
+      (digits?'<a class="round wa" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" aria-label="וואטסאפ">'+ICON.wa+'</a>':'')+
+      (digits?'<a class="round" href="tel:'+digits+'" data-call="'+l.row+'" aria-label="חיוג">'+ICON.phone+'</a>':'')+
+    '</div>'+
+    '<div class="lead-form">'+
+      '<div class="lf wide"><div class="lf-label">'+ICON.flag+'סטטוס</div>'+
+        '<button type="button" class="doc-btn" data-edit="'+l.row+'">תיעוד ליד'+ICON.chev+'</button></div>'+
+      '<div class="lf"><label class="lf-label" for="qf'+l.row+'">'+ICON.cal+'תאריך מעקב</label>'+
+        '<input type="date" id="qf'+l.row+'" data-q="followup" value="'+esc(toInputDate(l.followup))+'"'+(needsFollow(l)?' class="due"':'')+'></div>'+
+      '<div class="lf"><label class="lf-label" for="qn'+l.row+'">'+ICON.note+'הערה</label>'+
+        '<input type="text" id="qn'+l.row+'" data-q="notes" value="'+esc(l.notes||'')+'" placeholder="הערה על הליד..."></div>'+
+      '<button type="button" class="lf-save" data-save="'+l.row+'">'+ICON.check+'שמור</button>'+
     '</div></div>';
 }
 
@@ -525,7 +579,26 @@ function barRow(label,count,total){
     '<div class="bar-num num">'+count+'</div></div>';
 }
 
-function renderAll(){ renderChips(); renderLeads(); renderFollow(); renderSummary(); }
+function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderFollow(); renderSummary(); }
+
+/* שמירה מהירה מהכרטיס: תאריך מעקב + הערה, בלי לפתוח את חלון התיעוד.
+   state.dirty מסמן שיש הקלדה שלא נשמרה - כל עוד הוא דולק, הרענון האוטומטי לא דורס אותה. */
+document.addEventListener('input', e=>{ if(e.target.closest('.lead-form')) state.dirty=true; });
+async function quickSave(lead, card, btn){
+  const fields={ followup:card.querySelector('[data-q=followup]').value, notes:card.querySelector('[data-q=notes]').value };
+  btn.disabled=true;
+  try{
+    const res=await api('update',{row:lead.row, expect:{name:lead.name, phone:lead.phone}, fields});
+    if(res.ok){ state.dirty=false; toast('נשמר בטבלה ✓','ok'); await loadLeads(false); }
+    else if(res.error==='row_mismatch'){ state.dirty=false; toast('הטבלה השתנתה בינתיים - הרשימה רועננה, נסי שוב','bad'); await loadLeads(false); }
+    else if(res.error==='bad_pin') logout();
+    else toast('השמירה נכשלה - נסי שוב','bad');
+  }catch(err){
+    toast('אין חיבור - בדקי אינטרנט ונסי שוב','bad');
+  }finally{
+    btn.disabled=false;
+  }
+}
 
 /* ---------- tabs ---------- */
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -653,7 +726,13 @@ async function markContacted(lead){
   if(!state.statuses.includes(CONTACT_STATUS)) return;
   try{
     const res=await api('update',{row:lead.row, expect:{name:lead.name, phone:lead.phone}, fields:{status:CONTACT_STATUS}});
-    if(res.ok){ lead.status=CONTACT_STATUS; renderAll(); toast('סטטוס עודכן: '+CONTACT_STATUS,'ok'); }
+    if(res.ok){
+      lead.status=CONTACT_STATUS;
+      if(state.dirty){              // יש הקלדה שלא נשמרה - מעדכנים רק את התווית, לא מציירים מחדש
+        document.querySelectorAll('.lead[data-row="'+lead.row+'"] .pill').forEach(el=>{ el.outerHTML='<span class="pill" '+colorStyle('status',CONTACT_STATUS)+'>'+esc(CONTACT_STATUS)+'</span>'; });
+      }else renderAll();
+      toast('סטטוס עודכן: '+CONTACT_STATUS,'ok');
+    }
     else if(res.error==='bad_pin') logout();
     else await loadLeads(false);
   }catch(err){
@@ -668,11 +747,15 @@ document.addEventListener('click', e=>{
     if(called) markContacted(called);
     return;
   }
+  const save=e.target.closest('[data-save]');
+  if(save){
+    const l=state.leads.find(x=>x.row===+save.dataset.save);
+    if(l) quickSave(l, save.closest('.lead'), save);
+    return;
+  }
   const btn=e.target.closest('[data-edit]');
-  const card=e.target.closest('.lead');
-  const row = btn ? +btn.dataset.edit : (card ? +card.dataset.row : null);
-  if(row==null) return;
-  const lead=state.leads.find(l=>l.row===row);
+  if(!btn) return;
+  const lead=state.leads.find(l=>l.row===+btn.dataset.edit);
   if(lead) openEdit(lead);
 });
 
@@ -734,8 +817,8 @@ $('loginBtn').addEventListener('click', ()=>{ const p=$('pinInput').value.trim()
 $('pinInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const p=$('pinInput').value.trim(); if(p) tryLogin(p); } });
 
 /* רענון אוטומטי כל 2 דקות כשהדף פתוח */
-setInterval(()=>{ if(!document.hidden && state.pin && $('overlay').hidden) loadLeads(false); }, 120000);
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && state.pin && $('overlay').hidden) loadLeads(false); });
+setInterval(()=>{ if(!document.hidden && state.pin && $('overlay').hidden && !state.dirty) loadLeads(false); }, 120000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && state.pin && $('overlay').hidden && !state.dirty) loadLeads(false); });
 
 /* ---------- init ---------- */
 (function init(){
