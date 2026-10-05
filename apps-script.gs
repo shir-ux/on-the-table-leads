@@ -12,6 +12,7 @@
 
 var PIN = 'CHANGE_ME'; // הקוד שאורטל תקליד בכניסה לדף
 var SHEET_NAME = 'גיליון1';
+var TASKS_SHEET_NAME = 'משימות'; // לשונית נפרדת, שורה לכל משימה. נוצרת אוטומטית במשימה הראשונה
 var TZ = 'Asia/Jerusalem';
 
 // עמודות (1-based): A תאריך פנייה, B שם, C טלפון, D קמפיין, E מודעה,
@@ -37,6 +38,10 @@ function doPost(e) {
       res = withLock(function () { return updateLead(req); });
     } else if (req.action === 'add') {
       res = withLock(function () { return addLead(req); });
+    } else if (req.action === 'taskAdd') {
+      res = withLock(function () { return addTask(req); });
+    } else if (req.action === 'taskDone') {
+      res = withLock(function () { return setTaskDone(req); });
     } else {
       res = { ok: false, error: 'unknown_action' };
     }
@@ -96,6 +101,7 @@ function listLeads() {
     leads: leads,
     statuses: statuses,
     reasons: reasons,
+    tasks: listTasks(),
     statusColors: formatColors(sheet, COL.status, statuses),
     reasonColors: formatColors(sheet, COL.reason, reasons)
   };
@@ -282,4 +288,84 @@ function toCellValue(key, val) {
 
 function norm(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+
+// ---------- משימות ----------
+// לשונית נפרדת ולא עמודה בגיליון הלידים: לליד אחד יכולות להיות כמה משימות,
+// ומשימה שבוצעה נשארת בשיטס כהיסטוריה (הדף מציג רק פתוחות).
+// עמודות: A מזהה, B נוצר, C שם הליד, D טלפון, E משימה, F תאריך יעד, G בוצע, H בוצע בתאריך
+var TASK_COL = { id: 1, created: 2, name: 3, phone: 4, text: 5, due: 6, done: 7, doneAt: 8 };
+
+function getTasksSheet(create) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName(TASKS_SHEET_NAME);
+  if (sheet || !create) return sheet;
+  sheet = ss.insertSheet(TASKS_SHEET_NAME);
+  sheet.setRightToLeft(true);
+  sheet.getRange(1, 1, 1, 8).setValues([['מזהה', 'נוצר', 'שם הליד', 'טלפון', 'משימה', 'תאריך יעד', 'בוצע', 'בוצע בתאריך']])
+    .setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  // טקסט פשוט, כדי שגוגל לא ימחק את האפס המוביל בטלפון
+  sheet.getRange(1, TASK_COL.id, sheet.getMaxRows(), 1).setNumberFormat('@');
+  sheet.getRange(1, TASK_COL.phone, sheet.getMaxRows(), 1).setNumberFormat('@');
+  sheet.hideColumns(TASK_COL.id);
+  sheet.setColumnWidth(TASK_COL.text, 320);
+  return sheet;
+}
+
+// רק משימות פתוחות. אם הלשונית עוד לא קיימת - אין משימות.
+function listTasks() {
+  var sheet = getTasksSheet(false);
+  var out = [];
+  if (!sheet || sheet.getLastRow() < 2) return out;
+  var n = sheet.getLastRow() - 1;
+  var vals = sheet.getRange(2, 1, n, 8).getValues();
+  var shown = sheet.getRange(2, 1, n, 8).getDisplayValues();
+  for (var i = 0; i < n; i++) {
+    var v = vals[i];
+    if (!String(v[0]).trim() || v[6] === true) continue;
+    out.push({
+      id: String(v[0]), leadName: shown[i][2], leadPhone: shown[i][3],
+      text: shown[i][4], due: followupText(v[5], shown[i][5])
+    });
+  }
+  return out;
+}
+
+function addTask(req) {
+  var f = req.fields || {};
+  var text = norm(f.text);
+  if (!text) return { ok: false, error: 'empty_task' };
+  var sheet = getTasksSheet(true);
+  var id = Utilities.getUuid();
+  var due = f.due ? toCellValue('followup', f.due) : '';
+  var row = sheet.getLastRow() + 1;
+  sheet.getRange(row, 1, 1, 5).setValues([[
+    id, Utilities.formatDate(new Date(), TZ, 'dd-MM-yyyy HH:mm'),
+    String(f.leadName || ''), String(f.leadPhone || ''), text
+  ]]);
+  var dueCell = sheet.getRange(row, TASK_COL.due);
+  dueCell.setValue(due);
+  if (due instanceof Date) {
+    var hasTime = due.getHours() !== 0 || due.getMinutes() !== 0;
+    dueCell.setNumberFormat(hasTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy');
+  }
+  sheet.getRange(row, TASK_COL.done).insertCheckboxes().setValue(false);
+  return { ok: true, task: { id: id, leadName: String(f.leadName || ''), leadPhone: String(f.leadPhone || ''),
+                             text: text, due: followupText(due, '') } };
+}
+
+function setTaskDone(req) {
+  var sheet = getTasksSheet(false);
+  var id = String(req.id || '');
+  if (!sheet || !id || sheet.getLastRow() < 2) return { ok: false, error: 'task_not_found' };
+  var ids = sheet.getRange(2, TASK_COL.id, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) !== id) continue;
+    var done = req.done !== false;
+    sheet.getRange(i + 2, TASK_COL.done).setValue(done);
+    sheet.getRange(i + 2, TASK_COL.doneAt).setValue(done ? Utilities.formatDate(new Date(), TZ, 'dd-MM-yyyy HH:mm') : '');
+    return { ok: true };
+  }
+  return { ok: false, error: 'task_not_found' };
 }
