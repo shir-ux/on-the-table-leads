@@ -78,19 +78,14 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
 /* ---------- כפתורי בחירה: לכל ערך הצבע שלו (--c), זהה לתווית שעל כרטיס הליד ---------- */
 .picks{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
 .pick{
-  height:54px; padding:0 8px; border-radius:14px;
-  border:1.5px solid color-mix(in srgb, var(--c) 60%, transparent);
-  background:color-mix(in srgb, var(--c) 26%, transparent);
-  color:color-mix(in srgb, var(--c) 45%, #fff);
+  height:54px; padding:0 8px; border-radius:14px; border:0;
+  background:var(--c); color:var(--on);
   font-weight:600; font-size:15px; line-height:1.15;
   display:flex; align-items:center; justify-content:center; gap:6px; text-align:center;
 }
-.pick.on{
-  background:var(--c); border-color:var(--c); color:var(--on); font-weight:800;
-  box-shadow:0 0 0 3px var(--paper), 0 0 0 5px var(--c);
-}
+.pick.on{font-weight:800; box-shadow:0 0 0 3px var(--paper), 0 0 0 6px var(--gold)}
 .pick.on::before{content:"✓"; font-weight:800}
-.picks.has-on .pick:not(.on){opacity:.72}
+.picks.has-on .pick:not(.on){opacity:.4}
 .tab{position:relative; white-space:nowrap}
 .tab .badge{
   position:absolute; top:-5px; inset-inline-end:-2px;
@@ -366,7 +361,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbw23hVet72TBIaXW-kwBbUi
 const CLOSED_STATUS = 'הזמנה נסגרה';
 const OUT_STATUS = 'לא רלוונטי';
 const CONTACT_STATUS = 'נוצר קשר ראשוני';
-const state = { pin:'', leads:[], statuses:[], reasons:[], tab:'leads', filter:'', search:'', editing:null, adding:false };
+const state = { pin:'', leads:[], statuses:[], reasons:[], statusColors:{}, reasonColors:{}, tab:'leads', filter:'', search:'', editing:null, adding:false };
 const $ = id => document.getElementById(id);
 
 /* ---------- API ---------- */
@@ -405,7 +400,8 @@ function isClosed(l){ return l.closed || l.status===CLOSED_STATUS; }
 function isOut(l){ return l.status===OUT_STATUS; }
 function leadValue(l){ const n=Number(String(l.value||'').replace(/[^\d.\-]/g,'')); return isNaN(n)?0:n; }
 /* צבעי הסטטוסים והסיבות - מקור אחד לכפתורים ולתוויות, כדי שיהיו זהים בכל הדף.
-   ערך שאין לו צבע מוגדר מקבל את צבע ברירת המחדל. */
+   קודם כל הצבע מהשיטס (מגיע מה-API, לפי העיצוב המותנה של העמודה). הטבלה כאן היא גיבוי
+   לערך שאין לו צבע בשיטס, ומי שאין לו גם כאן מקבל את צבע ברירת המחדל. */
 const DEFAULT_COLOR = '#B79CB4';
 const STATUS_COLORS = {
   'חדש':'#C0289B', 'נוצר קשר ראשוני':'#7FD1FF', 'אין מענה 1':'#FF9A3D', 'אין מענה 2':'#FF9A3D', 'אין מענה 3':'#FF9A3D',
@@ -413,12 +409,18 @@ const STATUS_COLORS = {
   'הזמנה נסגרה':'#E8BE0E', 'לא רלוונטי':'#8E7F93'
 };
 const REASON_COLORS = {};
-function colorOf(map, name){ return map[name] || DEFAULT_COLOR; }
+function isHex(c){ return /^#[0-9a-f]{6}$/i.test(c||''); }
 function onColor(hex){                       // טקסט כהה על צבע בהיר, לבן על צבע כהה
   const n=parseInt(hex.slice(1),16), r=n>>16, g=(n>>8)&255, b=n&255;
   return (0.299*r + 0.587*g + 0.114*b) > 150 ? '#170322' : '#FFFFFF';
 }
-function colorStyle(hex){ return 'style="--c:'+hex+';--on:'+onColor(hex)+'"'; }
+function colorStyle(kind, name){
+  const sheet = (kind==='status' ? state.statusColors : state.reasonColors)[name] || {};
+  const local = (kind==='status' ? STATUS_COLORS : REASON_COLORS)[name] || DEFAULT_COLOR;
+  const c = isHex(sheet.bg) ? sheet.bg : isHex(sheet.fg) ? sheet.fg : local;
+  const on = isHex(sheet.bg) && isHex(sheet.fg) ? sheet.fg : onColor(c);
+  return 'style="--c:'+c+';--on:'+on+'"';
+}
 function needsFollow(l){
   if(isClosed(l)||isOut(l)) return false;
   const d = parseDate(l.followup);
@@ -448,7 +450,7 @@ function leadCard(l){
   return '<div class="card lead" data-row="'+l.row+'">'+
     '<div class="lead-top"><div><div class="lead-name">'+esc(l.name||'(ללא שם)')+'</div>'+
     '<div class="lead-meta num"><span>'+esc(fmtPhone(l.phone))+'</span>'+(l.created?' · <span>הגיע '+esc(fmtDate(l.created))+'</span>':'')+(l.ad?' · <span><bdi>'+esc(l.ad)+'</bdi></span>':'')+'</div></div>'+
-    '<span class="pill" '+colorStyle(colorOf(STATUS_COLORS, l.status||'חדש'))+'>'+esc(l.status||'חדש')+'</span></div>'+
+    '<span class="pill" '+colorStyle('status', l.status||'חדש')+'>'+esc(l.status||'חדש')+'</span></div>'+
     (rows.length?'<div class="lead-rows">'+rows.join('')+'</div>':'')+
     (l.notes?'<div class="lead-note">'+esc(l.notes)+'</div>':'')+
     '<div class="lead-actions">'+
@@ -537,8 +539,8 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
    ערך שקיים בשיטס ואינו ברשימה מוצג גם הוא, כדי שלא יימחק בשמירה. */
 function fillPicks(boxId, inputId, items, current){
   const list = current && !items.includes(current) ? items.concat([current]) : items;
-  const colors = inputId==='fStatus' ? STATUS_COLORS : REASON_COLORS;
-  $(boxId).innerHTML = list.map(s=>'<button type="button" class="pick" data-v="'+esc(s)+'" '+colorStyle(colorOf(colors,s))+'>'+esc(s)+'</button>').join('');
+  const kind = inputId==='fStatus' ? 'status' : 'reason';
+  $(boxId).innerHTML = list.map(s=>'<button type="button" class="pick" data-v="'+esc(s)+'" '+colorStyle(kind,s)+'>'+esc(s)+'</button>').join('');
   setPick(boxId, inputId, current||'');
 }
 function setPick(boxId, inputId, value){
@@ -698,6 +700,7 @@ async function loadLeads(showSpinner){
     const res=await api('list');
     if(res.ok){
       state.leads=res.leads||[]; state.statuses=res.statuses||[]; state.reasons=res.reasons||[];
+      state.statusColors=res.statusColors||{}; state.reasonColors=res.reasonColors||{};
       renderAll();
       $('appView').hidden=false; $('addBtn').hidden=false; $('loginView').hidden=true;
       openLeadFromHash();

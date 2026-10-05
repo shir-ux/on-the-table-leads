@@ -88,12 +88,60 @@ function listLeads() {
       });
     }
   }
+  var statuses = dropdownValues(sheet, hr, COL.status, LIST_COL_STATUSES);
+  var reasons = dropdownValues(sheet, hr, COL.reason, LIST_COL_REASONS);
   return {
     ok: true,
     leads: leads,
-    statuses: dropdownValues(sheet, hr, COL.status, LIST_COL_STATUSES),
-    reasons: dropdownValues(sheet, hr, COL.reason, LIST_COL_REASONS)
+    statuses: statuses,
+    reasons: reasons,
+    statusColors: formatColors(sheet, COL.status, statuses),
+    reasonColors: formatColors(sheet, COL.reason, reasons)
   };
+}
+
+// צבע לכל ערך, כפי שהוא נראה בשיטס: נקרא מכללי העיצוב המותנה שחלים על העמודה.
+// כך שינוי צבע בשיטס מתעדכן בדף בלי לגעת בקוד. הכלל הראשון שמתאים לערך קובע (כמו בשיטס).
+// צבעים שהוגדרו בתוך התפריט הנפתח עצמו (צ'יפים) לא נחשפים לקוד - ערך כזה פשוט לא יוחזר.
+function formatColors(sheet, col, names) {
+  var out = {};
+  var rules;
+  try { rules = sheet.getConditionalFormatRules(); } catch (err) { return out; }
+  for (var r = 0; r < rules.length; r++) {
+    var cond = rules[r].getBooleanCondition();
+    if (!cond || !coversColumn(rules[r].getRanges(), col)) continue;
+    var bg = cond.getBackground() || '';
+    var fg = cond.getFontColor() || '';
+    if (!bg && !fg) continue;
+    var type = cond.getCriteriaType();
+    var vals = cond.getCriteriaValues();
+    var needle = String(vals && vals.length ? vals[0] : '');
+    for (var n = 0; n < names.length; n++) {
+      var name = names[n];
+      if (out[name]) continue;
+      if (ruleMatches(type, needle, name)) out[name] = { bg: bg, fg: fg };
+    }
+  }
+  return out;
+}
+
+function coversColumn(ranges, col) {
+  for (var i = 0; i < ranges.length; i++) {
+    if (ranges[i].getColumn() <= col && col <= ranges[i].getLastColumn()) return true;
+  }
+  return false;
+}
+
+function ruleMatches(type, needle, name) {
+  var T = SpreadsheetApp.BooleanCriteria;
+  var a = norm(needle), b = norm(name);
+  if (!a) return false;
+  if (type === T.TEXT_EQUAL_TO) return a === b;
+  if (type === T.TEXT_CONTAINS) return b.indexOf(a) !== -1;
+  if (type === T.TEXT_STARTS_WITH) return b.indexOf(a) === 0;
+  if (type === T.TEXT_ENDS_WITH) return b.length >= a.length && b.lastIndexOf(a) === b.length - a.length;
+  if (type === T.CUSTOM_FORMULA) return needle.indexOf('"' + name + '"') !== -1;
+  return false;
 }
 
 // הרשימה נלקחת מהתפריט הנפתח עצמו (אימות הנתונים על התא הראשון בעמודה),
