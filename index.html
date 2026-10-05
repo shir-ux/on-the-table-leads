@@ -197,6 +197,12 @@ button.round{padding:0; cursor:pointer}
 /* שורה של שני תאריכים זה מול זה: התווית מעל הערך, כי "תאריך כניסת הליד" ארוכה מעמודת התוויות */
 .lp-row.two{grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start}
 .lp-row.two .lp-v{margin-top:4px}
+@media (min-width:900px){
+  /* במחשב: קמפיין | קהל | מודעה באותה שורה, כל אחד תווית ותגית צמודות. בנייד נשארות שורות נפרדות. */
+  .lp-in{max-width:1000px}   /* רחב מספיק כדי ששלושת המקורות ייכנסו בשורה אחת */
+  .lp-rows.src{display:flex; flex-wrap:wrap; align-items:center; gap:6px 22px; padding-top:6px}
+  .lp-rows.src .lp-row{display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:0; min-width:0}
+}
 .lp-k{display:flex; align-items:center; gap:8px; color:var(--mut); font-size:13.5px}
 .lp-k .ico{width:17px; height:17px; color:var(--gold)}
 .lp-v{color:#fff; font-size:14.5px; font-weight:500; overflow-wrap:anywhere; min-width:0}
@@ -1151,8 +1157,8 @@ function tagList(value){
   const v=String(value||'').trim();
   return v ? '<span class="tag"><bdi>'+esc(v)+'</bdi></span>' : '';
 }
-function lpGroup(title, rowsHtml){
-  return rowsHtml ? '<div class="lp-sec">'+title+'</div><div class="lp-rows">'+rowsHtml+'</div>' : '';
+function lpGroup(title, rowsHtml, extraClass){
+  return rowsHtml ? '<div class="lp-sec">'+title+'</div><div class="lp-rows'+(extraClass?' '+extraClass:'')+'">'+rowsHtml+'</div>' : '';
 }
 function renderLeadPage(){
   const l=viewedLead();
@@ -1186,7 +1192,7 @@ function renderLeadPage(){
     lpGroup('מאיפה הגיע',
       lpRow(ICON.flag, 'קמפיין', tagList(l.campaign))+
       lpRow(ICON.users, 'קהל', tagList(l.audience))+
-      lpRow(ICON.image, 'מודעה', tagList(l.ad)))+
+      lpRow(ICON.image, 'מודעה', tagList(l.ad)), 'src')+
     (l.notes ? '<div class="lp-note"><div class="lp-note-k">הערה אחרונה</div>'+esc(l.notes)+'</div>' : '');
 }
 async function loadHistory(){
