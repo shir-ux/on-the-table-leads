@@ -186,11 +186,6 @@ bdi{unicode-bidi:isolate}
   display:flex; align-items:center; justify-content:space-between; gap:8px;
   box-shadow:0 0 18px rgba(232,190,14,.3);
 }
-.lf-save{
-  grid-column:1 / -1; justify-self:start; border:0; background:none; padding:2px 0;
-  color:var(--ink2); font-size:15px; font-weight:500; display:flex; align-items:center; gap:7px;
-}
-.lf-save:disabled{opacity:.5}
 
 @media (min-width:900px){
   .lead{grid-template-columns:minmax(220px,1fr) minmax(0,2.4fr) auto; gap:0 22px; align-items:center; padding:22px 24px}
@@ -265,6 +260,7 @@ bdi{unicode-bidi:isolate}
 }
 .check input{width:20px; height:20px; accent-color:var(--gold)}
 .check span{font-weight:500}
+.hint{color:var(--mut); font-size:12.5px; margin-top:8px}
 .sheet-btns{display:flex; gap:10px; margin-top:18px}
 .btn{border:0; border-radius:14px; height:50px; padding:0 10px; font-weight:700; font-size:15.5px}
 .btn-save{flex:2; background:var(--gold); color:var(--bg); box-shadow:0 0 18px rgba(232,190,14,.3)}
@@ -385,7 +381,8 @@ bdi{unicode-bidi:isolate}
       <div class="field"><label for="fPhone">טלפון</label><input id="fPhone" type="tel" inputmode="tel" placeholder="050-0000000"></div>
     </div>
 
-    <div class="field"><span class="label">סטטוס</span><div class="picks" id="pStatus" role="group" aria-label="סטטוס"></div><input type="hidden" id="fStatus"></div>
+    <div class="field"><span class="label">סטטוס</span><div class="picks" id="pStatus" role="group" aria-label="סטטוס"></div><input type="hidden" id="fStatus">
+      <div class="hint" id="pickHint">לחיצה על סטטוס שומרת מיד</div></div>
     <input type="hidden" id="fReason">
     <!-- חלון התיעוד מציג רק סטטוסים. השדות האלה נשארים מוסתרים כי הלוגיקה נשענת עליהם:
          הדיווח של "לא רלוונטי" וסימון "נסגרה עסקה" עוברים דרכם; תאריך מעקב והערה נערכים בכרטיס עצמו. -->
@@ -604,7 +601,6 @@ function leadCard(l){
         ICON.cal+'<span>'+esc(followLabel(toInputDate(l.followup), toInputTime(l.followup)))+'</span></button></div>'+
       '<div class="lf wide"><label class="lf-label" for="qn'+l.row+'">'+ICON.note+'הערה</label>'+
         '<input type="text" id="qn'+l.row+'" data-q="notes" value="'+esc(l.notes||'')+'" placeholder="הערה על הליד..."></div>'+
-      '<button type="button" class="lf-save" data-save="'+l.row+'">'+ICON.check+'שמור</button>'+
     '</div></div>';
 }
 
@@ -675,26 +671,53 @@ function barRow(label,count,total){
 
 function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderFollow(); renderSummary(); }
 
-/* שמירה מהירה מהכרטיס: תאריך מעקב + הערה, בלי לפתוח את חלון התיעוד.
-   state.dirty מסמן שיש הקלדה שלא נשמרה - כל עוד הוא דולק, הרענון האוטומטי לא דורס אותה. */
+/* שמירה אוטומטית מהכרטיס: תאריך מעקב והערה נשמרים לבד, בלי כפתור.
+   תאריך - ברגע האישור בלוח. הערה - כשיוצאים מהשדה (או Enter), ולא בזמן ההקלדה,
+   כדי ששמירה באמצע משפט לא תקפיץ את השדה. state.dirty דולק כל עוד יש הקלדה שלא נשמרה,
+   ואז הרענון האוטומטי לא דורס אותה. */
 document.addEventListener('input', e=>{ if(e.target.closest('.lead-form')) state.dirty=true; });
-async function quickSave(lead, card, btn){
-  const f=card.querySelector('[data-dt]'), date=f.dataset.date||'', time=f.dataset.time||'';
-  const fields=onlyChanged({ followup:joinFollow(date,time), notes:card.querySelector('[data-q=notes]').value }, lead);
-  if(!Object.keys(fields).length){ state.dirty=false; toast('אין שינויים לשמירה'); return; }
-  btn.disabled=true;
+function toSheetFollow(iso){                    // "2026-10-15T16:30" -> "15-10-2026 16:30", כמו שהשיטס מחזיר
+  if(!iso) return '';
+  const p=iso.split('T'), d=p[0].split('-');
+  return d[2]+'-'+d[1]+'-'+d[0]+(p[1] ? ' '+p[1] : '');
+}
+function typingInCard(){ const a=document.activeElement; return !!(a && a.matches && a.matches('[data-q=notes]')); }
+async function autoSaveCard(card){
+  const lead=state.leads.find(l=>l.row===+card.dataset.row);
+  if(!lead) return;
+  if(lead._saving){ lead._again=card; return; }   // שמירה כבר בדרך - נריץ שוב כשתסתיים
+  const f=card.querySelector('[data-dt]');
+  const fields=onlyChanged({ followup:joinFollow(f.dataset.date||'', f.dataset.time||''), notes:card.querySelector('[data-q=notes]').value }, lead);
+  if(!Object.keys(fields).length){ if(!typingInCard()) state.dirty=false; return; }
+  lead._saving=true;
   try{
     const res=await api('update',{row:lead.row, expect:{name:lead.name, phone:lead.phone}, fields});
-    if(res.ok){ state.dirty=false; toast('נשמר בטבלה ✓','ok'); await loadLeads(false); }
-    else if(res.error==='row_mismatch'){ state.dirty=false; toast('הטבלה השתנתה בינתיים - הרשימה רועננה, נסי שוב','bad'); await loadLeads(false); }
+    if(res.ok){
+      if('followup' in fields) lead.followup=toSheetFollow(fields.followup);
+      if('notes' in fields) lead.notes=fields.notes;
+      toast('נשמר ✓','ok');
+      if(!typingInCard()){ renderAll(); }          // מעדכן את לשונית הפולואפ והמונה; לא בזמן הקלדה
+    }
+    else if(res.error==='row_mismatch'){ toast('הטבלה השתנתה בינתיים - הרשימה רועננה, נסי שוב','bad'); state.dirty=false; await loadLeads(false); }
     else if(res.error==='bad_pin') logout();
     else toast('השמירה נכשלה - נסי שוב','bad');
   }catch(err){
-    toast('אין חיבור - בדקי אינטרנט ונסי שוב','bad');
+    toast('לא נשמר - אין חיבור. נסי שוב','bad');
   }finally{
-    btn.disabled=false;
+    lead._saving=false;
+    if(lead._again){ const c=lead._again; lead._again=null; if(c.isConnected) autoSaveCard(c); }
   }
 }
+document.addEventListener('change', e=>{
+  if(e.target.matches('[data-q=notes]')) autoSaveCard(e.target.closest('.lead'));
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && e.target.matches && e.target.matches('[data-q=notes]')) e.target.blur();
+});
+/* יציאה מהדף או מעבר לאפליקציה אחרת באמצע הקלדה - שומרים את מה שנכתב */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden && state.dirty) document.querySelectorAll('.lead').forEach(c=>autoSaveCard(c));
+});
 
 /* ---------- בוחר תאריך ושעה ----------
    שדה אחד: לוח שנה ומתחתיו שעה. השעות בקפיצות של חצי שעה בלבד - לכן בוחר משלנו
@@ -736,6 +759,7 @@ function applyDt(date, time){
   b.querySelector('span').textContent=followLabel(date, date?time:'');
   state.dirty=true;
   $('dtPop').hidden=true;
+  autoSaveCard(b.closest('.lead'));
 }
 function shiftMonth(by){ const d=new Date(dtp.y, dtp.m+by, 1); dtp.y=d.getFullYear(); dtp.m=d.getMonth(); renderDt(); }
 $('dtPrev').addEventListener('click', ()=>shiftMonth(-1));
@@ -774,8 +798,14 @@ $('pStatus').addEventListener('click', e=>{
   const b=e.target.closest('.pick'); if(!b) return;
   if(b.dataset.v===OUT_STATUS){ openOutPop(); return; }   // הסטטוס נקבע רק אחרי שמולאו סיבה ודיווח
   if(b.dataset.v===CLOSED_STATUS){ openWinPop(); return; } // הסטטוס נקבע רק אחרי שהוזן שווי ההזמנה
-  setPick('pStatus','fStatus', $('fStatus').value===b.dataset.v ? '' : b.dataset.v);
+  if(state.adding){                                        // ליד חדש: בוחרים סטטוס ושומרים בכפתור
+    setPick('pStatus','fStatus', $('fStatus').value===b.dataset.v ? '' : b.dataset.v);
+    return;
+  }
+  if($('fStatus').value===b.dataset.v){ closeEdit(); return; }   // אותו סטטוס - אין מה לשמור
+  setPick('pStatus','fStatus', b.dataset.v);
   $('fClosed').checked=false;                              // "נסגרה עסקה" מסומן רק יחד עם הסטטוס "הזמנה נסגרה"
+  $('saveBtn').click();                                    // לחיצה על סטטוס שומרת מיד, בלי כפתור
 });
 
 /* ---------- "הזמנה נסגרה": שווי הזמנה חובה, וסימון "נסגרה עסקה" אוטומטי ---------- */
@@ -822,6 +852,9 @@ $('outSave').addEventListener('click', ()=>{
   $('saveBtn').click();
 });
 function openEdit(lead){
+  $('saveBtn').hidden=!!lead;                    // בליד קיים הסטטוס נשמר בלחיצה; הכפתור נשאר רק לליד חדש
+  $('cancelBtn').textContent = lead ? 'סגירה' : 'ביטול';
+  $('pickHint').hidden=!lead;
   state.editing=lead; state.adding=!lead;
   $('newLeadFields').hidden=!!lead;
   $('sheetTitle').textContent = lead ? lead.name||'(ללא שם)' : 'ליד חדש';
@@ -923,12 +956,6 @@ document.addEventListener('click', e=>{
   }
   const dt=e.target.closest('[data-dt]');
   if(dt){ openDt(dt); return; }
-  const save=e.target.closest('[data-save]');
-  if(save){
-    const l=state.leads.find(x=>x.row===+save.dataset.save);
-    if(l) quickSave(l, save.closest('.lead'), save);
-    return;
-  }
   const btn=e.target.closest('[data-edit]');
   if(!btn) return;
   const lead=state.leads.find(l=>l.row===+btn.dataset.edit);
