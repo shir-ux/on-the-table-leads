@@ -169,12 +169,10 @@ button.round{padding:0; cursor:pointer}
 .lp-k{display:flex; align-items:center; gap:8px; color:var(--mut); font-size:13.5px}
 .lp-k .ico{width:17px; height:17px; color:var(--gold)}
 .lp-v{color:#fff; font-size:14.5px; font-weight:500; overflow-wrap:anywhere; min-width:0}
-/* התגיות תמיד בשורה אחת. אם הן לא נכנסות ברוחב המסך - גוללים אותן הצידה באצבע. */
-.tags{display:flex; flex-wrap:nowrap; gap:5px; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch}
-.tags::-webkit-scrollbar{display:none}
+/* תגית אחת לערך. ערך ארוך מרוחב המסך נשבר בתוך התגית עצמה */
 .tag{
-  flex-shrink:0; background:var(--paper2); border:1px solid var(--line); border-radius:99px;
-  padding:2px 9px; font-size:12.5px; font-weight:400; color:var(--ink); white-space:nowrap;
+  display:inline-block; max-width:100%; background:var(--paper2); border:1px solid var(--line); border-radius:14px;
+  padding:3px 10px; font-size:12.5px; font-weight:400; line-height:1.35; color:var(--ink); overflow-wrap:anywhere;
 }
 .lp-note{
   margin-top:18px; background:var(--paper2); border-inline-start:3px solid var(--gold); border-radius:0;
@@ -1004,13 +1002,10 @@ function viewedLead(){ return state.viewRow==null ? null : state.leads.find(l=>l
 function lpRow(icon, label, valueHtml){
   return valueHtml ? '<div class="lp-row"><div class="lp-k">'+icon+label+'</div><div class="lp-v">'+valueHtml+'</div></div>' : '';
 }
-/* שמות קמפיין וקהל מגיעים כמחרוזת אחת עם קווים מפרידים ("לידים | מגשי אירוח | 699").
-   כל חלק מוצג כתגית נפרדת - קל יותר לקרוא מאשר שורה אחת ארוכה. */
+/* קמפיין, קהל ומודעה: כל ערך מוצג כתגית אחת שלמה, כפי שהוא כתוב בשיטס */
 function tagList(value){
-  const parts=String(value||'').split('|').map(x=>x.trim()).filter(Boolean);
-  if(!parts.length) return '';
-  if(parts.length===1) return esc(parts[0]);
-  return '<div class="tags">'+parts.map(x=>'<span class="tag"><bdi>'+esc(x)+'</bdi></span>').join('')+'</div>';
+  const v=String(value||'').trim();
+  return v ? '<span class="tag"><bdi>'+esc(v)+'</bdi></span>' : '';
 }
 function lpGroup(title, rowsHtml){
   return rowsHtml ? '<div class="lp-sec">'+title+'</div><div class="lp-rows">'+rowsHtml+'</div>' : '';
