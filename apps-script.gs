@@ -15,10 +15,27 @@ var SHEET_NAME = 'גיליון1';
 var TASKS_SHEET_NAME = 'משימות'; // לשונית נפרדת, שורה לכל משימה. נוצרת אוטומטית במשימה הראשונה
 var TZ = 'Asia/Jerusalem';
 
-// עמודות (1-based): A תאריך פנייה, B שם, C טלפון, D קמפיין, E מודעה,
-// F תאריך אירוע, G סטטוס, H סיבה, I הערות, J פולואפ, K נסגרה, L שווי
-var COL = { created: 1, name: 2, phone: 3, campaign: 4, ad: 5, eventDate: 6,
-            status: 7, reason: 8, notes: 9, followup: 10, closed: 11, value: 12 };
+// העמודות מזוהות לפי שם הכותרת שלהן ולא לפי מיקום, כדי שאותו קוד יעבוד גם בגיליון
+// שבו העמודות מסודרות אחרת. לכל שדה - שמות הכותרת המקובלים. חובה: שם, טלפון, סטטוס.
+// שדה שהכותרת שלו לא קיימת בגיליון פשוט לא נקרא ולא נכתב.
+var HEADERS = {
+  created: ['תאריך פנייה', 'תאריך פניה'],
+  name: ['שם מלא', 'שם'],
+  phone: ['טלפון'],
+  campaign: ['קמפיין'],
+  ad: ['מודעה'],
+  audience: ['שם הקהל', 'קהל'],
+  status: ['סטטוס'],
+  reason: ['סיבת אי-סגירה', 'סיבת אי סגירה'],
+  notes: ['דיווח והערות', 'הערות'],
+  followup: ['תאריך פולואפ', 'תאריך מעקב'],
+  closed: ['נסגרה עסקה'],
+  value: ['שווי הזמנה']
+};
+var REQUIRED_FIELDS = ['name', 'phone', 'status'];
+var COL = {};        // שדה -> מספר עמודה (1-based). מתמלא ב-readLayout בכל בקשה
+var HEADER_ROW = 0;
+var HISTORY_SHEET_NAME = 'היסטוריה'; // שורה לכל אירוע בליד. נוצרת אוטומטית באירוע הראשון
 var LIST_COL_STATUSES = 14; // N
 var LIST_COL_REASONS = 15;  // O
 
@@ -38,6 +55,8 @@ function doPost(e) {
       res = withLock(function () { return updateLead(req); });
     } else if (req.action === 'add') {
       res = withLock(function () { return addLead(req); });
+    } else if (req.action === 'history') {
+      res = leadHistory(req);
     } else if (req.action === 'taskAdd') {
       res = withLock(function () { return addTask(req); });
     } else if (req.action === 'taskDone') {
@@ -61,17 +80,51 @@ function withLock(fn) {
 function getSheet() {
   var sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_NAME);
   if (!sheet) throw new Error('לא נמצא גיליון בשם ' + SHEET_NAME);
+  readLayout(sheet);
   return sheet;
 }
 
 // שורת הכותרות מזוהה לפי "שם מלא" בעמודה B - עמיד גם אם תתווסף שורה מעל
 function headerRow(sheet) {
-  var top = sheet.getRange(1, COL.name, Math.min(5, sheet.getLastRow()), 1).getDisplayValues();
-  for (var i = 0; i < top.length; i++) {
-    if (top[i][0].trim() === 'שם מלא') return i + 1;
-  }
-  throw new Error('לא נמצאה שורת כותרות (שם מלא בעמודה B)');
+  return HEADER_ROW;
 }
+
+// שורת הכותרות היא הראשונה (מתוך 5 העליונות) שיש בה גם "שם" וגם "טלפון".
+function readLayout(sheet) {
+  var rows = Math.min(5, sheet.getLastRow());
+  var width = sheet.getLastColumn();
+  if (!rows || !width) throw new Error('הגיליון ריק');
+  var top = sheet.getRange(1, 1, rows, width).getDisplayValues();
+  for (var r = 0; r < top.length; r++) {
+    var found = {};
+    for (var c = 0; c < width; c++) {
+      var key = fieldForHeader(top[r][c]);
+      if (key && !found[key]) found[key] = c + 1;
+    }
+    if (found.name && found.phone) {
+      var missing = [];
+      for (var i = 0; i < REQUIRED_FIELDS.length; i++) {
+        if (!found[REQUIRED_FIELDS[i]]) missing.push(HEADERS[REQUIRED_FIELDS[i]][0]);
+      }
+      if (missing.length) throw new Error('חסרה בגיליון עמודה בשם: ' + missing.join(', '));
+      COL = found; HEADER_ROW = r + 1;
+      return;
+    }
+  }
+  throw new Error('לא נמצאה שורת כותרות (עמודות "שם מלא" ו"טלפון")');
+}
+
+function fieldForHeader(text) {
+  var t = norm(text).replace(/[₪\s]+$/, '');
+  if (!t) return '';
+  for (var key in HEADERS) {
+    if (HEADERS[key].indexOf(t) !== -1) return key;
+  }
+  if (t.indexOf('שווי הזמנה') === 0) return 'value';
+  return '';
+}
+
+function cell(v, key) { return COL[key] ? v[COL[key] - 1] : ''; }
 
 function listLeads() {
   var sheet = getSheet();
@@ -79,18 +132,20 @@ function listLeads() {
   var lastRow = sheet.getLastRow();
   var leads = [];
   if (lastRow > hr) {
-    var vals = sheet.getRange(hr + 1, 1, lastRow - hr, 12).getDisplayValues();
-    var followRaw = sheet.getRange(hr + 1, COL.followup, lastRow - hr, 1).getValues();
+    var vals = sheet.getRange(hr + 1, 1, lastRow - hr, sheet.getLastColumn()).getDisplayValues();
+    var followRaw = COL.followup ? sheet.getRange(hr + 1, COL.followup, lastRow - hr, 1).getValues() : null;
     for (var i = 0; i < vals.length; i++) {
       var v = vals[i];
       // שורה נחשבת ליד רק אם יש בה שם, טלפון או תאריך פנייה
       // (עמודת "נסגרה עסקה" מלאה FALSE מראש בהרבה שורות ריקות)
-      if (!v[0].trim() && !v[1].trim() && !v[2].trim()) continue;
+      if (!cell(v, 'created').trim() && !cell(v, 'name').trim() && !cell(v, 'phone').trim()) continue;
       leads.push({
         row: hr + 1 + i,
-        created: v[0], name: v[1], phone: v[2], campaign: v[3], ad: v[4],
-        eventDate: v[5], status: v[6], reason: v[7], notes: v[8],
-        followup: followupText(followRaw[i][0], v[9]), closed: v[10].toUpperCase() === 'TRUE', value: v[11]
+        created: cell(v, 'created'), name: cell(v, 'name'), phone: cell(v, 'phone'),
+        campaign: cell(v, 'campaign'), ad: cell(v, 'ad'), audience: cell(v, 'audience'),
+        status: cell(v, 'status'), reason: cell(v, 'reason'), notes: cell(v, 'notes'),
+        followup: followRaw ? followupText(followRaw[i][0], cell(v, 'followup')) : '',
+        closed: cell(v, 'closed').toUpperCase() === 'TRUE', value: cell(v, 'value')
       });
     }
   }
@@ -112,6 +167,7 @@ function listLeads() {
 // צבעים שהוגדרו בתוך התפריט הנפתח עצמו (צ'יפים) לא נחשפים לקוד - ערך כזה פשוט לא יוחזר.
 function formatColors(sheet, col, names) {
   var out = {};
+  if (!col) return out;
   var rules;
   try { rules = sheet.getConditionalFormatRules(); } catch (err) { return out; }
   for (var r = 0; r < rules.length; r++) {
@@ -155,6 +211,7 @@ function ruleMatches(type, needle, name) {
 // כי זה מה שאורטל רואה בשיטס - בין אם הערכים הוקלדו בתוך התפריט ובין אם הוא מפנה לטווח.
 // עמודות N/O נשארות רק כגיבוי למקרה שאין אימות נתונים על העמודה.
 function dropdownValues(sheet, hr, dataCol, listCol) {
+  if (!dataCol) return [];
   var rule = sheet.getRange(hr + 1, dataCol).getDataValidation();
   var out = [];
   if (rule) {
@@ -202,20 +259,40 @@ function updateLead(req) {
   var hr = headerRow(sheet);
   if (!row || row <= hr || row > sheet.getLastRow()) return { ok: false, error: 'row_mismatch' };
 
-  var current = sheet.getRange(row, COL.name, 1, 2).getDisplayValues()[0];
+  var before = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
   var expect = req.expect || {};
-  if (norm(current[0]) !== norm(expect.name) || norm(current[1]) !== norm(expect.phone)) {
+  if (norm(cell(before, 'name')) !== norm(expect.name) || norm(cell(before, 'phone')) !== norm(expect.phone)) {
     return { ok: false, error: 'row_mismatch' };
   }
 
   var fields = req.fields || {};
-  var writable = ['eventDate', 'status', 'reason', 'notes', 'followup', 'closed', 'value'];
+  var writable = ['status', 'reason', 'notes', 'followup', 'closed', 'value'];
   for (var i = 0; i < writable.length; i++) {
     var key = writable[i];
     if (!(key in fields)) continue;
     writeCell(sheet, row, key, fields[key]);
   }
+  logChanges(cell(before, 'name'), cell(before, 'phone'), before, fields);
   return { ok: true };
+}
+
+// רושם בהיסטוריה את מה שהשתנה. כישלון ברישום לא מכשיל את השמירה עצמה.
+function logChanges(name, phone, before, fields) {
+  try {
+    if ('status' in fields && norm(fields.status) !== norm(cell(before, 'status'))) {
+      var from = norm(cell(before, 'status'));
+      logEvent(name, phone, 'סטטוס', (from ? 'מ"' + from + '" ל' : '') + '"' + norm(fields.status) + '"');
+    }
+    if ('reason' in fields && norm(fields.reason)) logEvent(name, phone, 'סיבת אי-סגירה', norm(fields.reason));
+    if ('value' in fields && norm(fields.value)) logEvent(name, phone, 'שווי הזמנה', norm(fields.value) + ' ₪');
+    if ('followup' in fields) {
+      var due = toCellValue('followup', fields.followup);
+      logEvent(name, phone, 'מעקב', due instanceof Date ? 'נקבע ל-' + followupText(due, '') : 'תאריך המעקב נוקה');
+    }
+    if ('notes' in fields && norm(fields.notes) && norm(fields.notes) !== norm(cell(before, 'notes'))) {
+      logEvent(name, phone, 'הערה', String(fields.notes).trim());
+    }
+  } catch (err) {}
 }
 
 function addLead(req) {
@@ -224,28 +301,29 @@ function addLead(req) {
   var f = req.fields || {};
   if (!norm(f.name) && !norm(f.phone)) return { ok: false, error: 'empty_lead' };
 
-  // השורה הריקה הראשונה אחרי הכותרות לפי עמודות A-C
-  // (getLastRow מחזיר גם שורות שמכילות רק תיבות סימון ריקות ב-K)
+  // השורה הריקה הראשונה אחרי הכותרות לפי תאריך פנייה / שם / טלפון
+  // (getLastRow מחזיר גם שורות שמכילות רק תיבות סימון ריקות)
   var lastRow = sheet.getLastRow();
   var row = hr + 1;
   if (lastRow > hr) {
-    var vals = sheet.getRange(hr + 1, 1, lastRow - hr, 3).getDisplayValues();
+    var vals = sheet.getRange(hr + 1, 1, lastRow - hr, sheet.getLastColumn()).getDisplayValues();
     var i = 0;
-    while (i < vals.length && (vals[i][0].trim() || vals[i][1].trim() || vals[i][2].trim())) i++;
+    while (i < vals.length && (cell(vals[i], 'created').trim() || cell(vals[i], 'name').trim() || cell(vals[i], 'phone').trim())) i++;
     row = hr + 1 + i;
   }
 
-  sheet.getRange(row, COL.created).setValue(Utilities.formatDate(new Date(), TZ, 'dd-MM-yyyy HH:mm'));
+  if (COL.created) sheet.getRange(row, COL.created).setValue(Utilities.formatDate(new Date(), TZ, 'dd-MM-yyyy HH:mm'));
   sheet.getRange(row, COL.name).setValue(String(f.name || ''));
   sheet.getRange(row, COL.phone).setValue(String(f.phone || ''));
-  sheet.getRange(row, COL.campaign).setValue(String(f.campaign || 'הוזן ידנית'));
-  var opt = ['eventDate', 'status', 'reason', 'notes', 'followup', 'closed', 'value'];
+  if (COL.campaign) sheet.getRange(row, COL.campaign).setValue(String(f.campaign || 'הוזן ידנית'));
+  var opt = ['status', 'reason', 'notes', 'followup', 'closed', 'value'];
   for (var j = 0; j < opt.length; j++) {
     var key = opt[j];
     if (key in f && f[key] !== '' && f[key] !== null) {
       writeCell(sheet, row, key, f[key]);
     }
   }
+  try { logEvent(String(f.name || ''), String(f.phone || ''), 'ליד חדש', 'הוזן ידנית דרך הדף'); } catch (err) {}
   return { ok: true, row: row };
 }
 
@@ -261,6 +339,7 @@ function followupText(raw, display) {
 // כותב ערך לתא. לתאריך מעקב עם שעה - מעצב את התא כך שהשעה תיראה גם בשיטס;
 // תאריך בלי שעה מחזיר תא שהוצגה בו שעה לתצוגת תאריך בלבד.
 function writeCell(sheet, row, key, val) {
+  if (!COL[key]) return; // אין עמודה כזו בגיליון הזה
   var range = sheet.getRange(row, COL[key]);
   var value = toCellValue(key, val);
   range.setValue(value);
@@ -277,7 +356,7 @@ function toCellValue(key, val) {
     var n = Number(String(val).replace(/[^\d.\-]/g, ''));
     return isNaN(n) || String(val).trim() === '' ? '' : n;
   }
-  if (key === 'eventDate' || key === 'followup') {
+  if (key === 'followup') {
     // מהדף מגיע yyyy-mm-dd, ולתאריך מעקב עם שעה: yyyy-mm-ddTHH:MM
     var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(String(val).trim());
     if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] || 0), Number(m[5] || 0));
@@ -351,6 +430,10 @@ function addTask(req) {
     dueCell.setNumberFormat(hasTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy');
   }
   sheet.getRange(row, TASK_COL.done).insertCheckboxes().setValue(false);
+  try {
+    logEvent(String(f.leadName || ''), String(f.leadPhone || ''), 'משימה',
+             text + (due instanceof Date ? ' · עד ' + followupText(due, '') : ''));
+  } catch (err) {}
   return { ok: true, task: { id: id, leadName: String(f.leadName || ''), leadPhone: String(f.leadPhone || ''),
                              text: text, due: followupText(due, '') } };
 }
@@ -365,7 +448,61 @@ function setTaskDone(req) {
     var done = req.done !== false;
     sheet.getRange(i + 2, TASK_COL.done).setValue(done);
     sheet.getRange(i + 2, TASK_COL.doneAt).setValue(done ? Utilities.formatDate(new Date(), TZ, 'dd-MM-yyyy HH:mm') : '');
+    if (done) {
+      try {
+        var t = sheet.getRange(i + 2, TASK_COL.name, 1, 3).getDisplayValues()[0]; // שם, טלפון, משימה
+        logEvent(t[0], t[1], 'משימה בוצעה', t[2]);
+      } catch (err) {}
+    }
     return { ok: true };
   }
   return { ok: false, error: 'task_not_found' };
+}
+
+// ---------- היסטוריה ----------
+// לשונית נפרדת, שורה לכל אירוע: שינוי סטטוס, הערה, מעקב, שווי, משימה.
+// נרשם רק מה שנעשה דרך הדף - שינוי ידני בגיליון לא עובר כאן.
+// הקישור לליד הוא לפי טלפון (9 הספרות האחרונות), כי מספרי שורות משתנים במיון ובמחיקה.
+// עמודות: A תאריך, B שם הליד, C טלפון, D סוג, E פירוט
+function getHistorySheet(create) {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName(HISTORY_SHEET_NAME);
+  if (sheet || !create) return sheet;
+  sheet = ss.insertSheet(HISTORY_SHEET_NAME);
+  sheet.setRightToLeft(true);
+  sheet.getRange(1, 1, 1, 5).setValues([['תאריך', 'שם הליד', 'טלפון', 'סוג', 'פירוט']]).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 3, sheet.getMaxRows(), 1).setNumberFormat('@'); // טלפון כטקסט, בלי לאבד אפס מוביל
+  sheet.setColumnWidth(1, 140);
+  sheet.setColumnWidth(5, 420);
+  return sheet;
+}
+
+function logEvent(name, phone, type, text) {
+  var sheet = getHistorySheet(true);
+  var row = sheet.getLastRow() + 1;
+  sheet.getRange(row, 1, 1, 5).setValues([[new Date(), String(name || ''), String(phone || ''), type, String(text || '')]]);
+  sheet.getRange(row, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+}
+
+function phoneKey(p) {
+  var d = String(p == null ? '' : p).replace(/\D/g, '');
+  return d.length > 9 ? d.slice(-9) : d;
+}
+
+// האירועים של ליד אחד, מהחדש לישן
+function leadHistory(req) {
+  var events = [];
+  var key = phoneKey(req.phone);
+  var sheet = getHistorySheet(false);
+  if (!key || !sheet || sheet.getLastRow() < 2) return { ok: true, events: events };
+  var n = sheet.getLastRow() - 1;
+  var vals = sheet.getRange(2, 1, n, 5).getValues();
+  var shown = sheet.getRange(2, 1, n, 5).getDisplayValues();
+  for (var i = n - 1; i >= 0 && events.length < 200; i--) {
+    if (phoneKey(shown[i][2]) !== key) continue;
+    var at = vals[i][0] instanceof Date ? Utilities.formatDate(vals[i][0], Session.getScriptTimeZone(), 'dd.MM.yyyy HH:mm') : shown[i][0];
+    events.push({ at: at, type: shown[i][3], text: shown[i][4] });
+  }
+  return { ok: true, events: events };
 }
