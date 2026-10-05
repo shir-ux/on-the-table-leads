@@ -101,12 +101,15 @@ input:focus,select:focus,textarea:focus,button:focus-visible{
   width:46px; min-width:46px; height:46px; border-radius:12px; border:1px solid var(--line);
   background:var(--paper); color:var(--gold); font-size:18px;
 }
-.chips{display:flex; gap:6px; overflow-x:auto; padding:2px 0 12px; -webkit-overflow-scrolling:touch}
+.chips{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding:2px 0 14px}
 .chip{
-  border:1px solid var(--line); background:var(--paper); color:var(--ink2);
-  border-radius:999px; padding:6px 13px; font-size:13px; white-space:nowrap; font-weight:400;
+  height:56px; padding:0 4px; border-radius:14px; border:1px solid var(--line); background:var(--paper);
+  color:var(--ink2); font-size:13px; font-weight:500; line-height:1.15;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; text-align:center;
 }
-.chip.active{background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:600}
+.chip b{font-size:16px; font-weight:800; color:#fff}
+.chip.active{background:var(--gold); border-color:var(--gold); color:var(--bg); font-weight:700}
+.chip.active b{color:var(--bg)}
 
 /* ---------- cards ---------- */
 .card{
@@ -350,7 +353,7 @@ button.round{padding:0; cursor:pointer}
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="leads" role="tab">לידים<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0v1H2v-1Zm15-9.5a3.5 3.5 0 1 0-1.6-6.6 6 6 0 0 1 0 6.2c.5.25 1 .4 1.6.4Zm1 10.5v-1a8.9 8.9 0 0 0-2.2-5.9A6 6 0 0 1 22 20v1h-4Z"/></svg></button>
       <button class="tab" data-tab="tasks" role="tab">משימות<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l2 2 3.5-4M4 16l2 2 3.5-4M13 7h7M13 16h7"/></svg><span class="badge" id="taskBadge" hidden></span></button>
-      <button class="tab" data-tab="summary" role="tab">סיכום<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 21V11M10 21V4M15 21v-7M20 21V8"/></svg></button>
+      <button class="tab" data-tab="summary" role="tab">דוחות<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 21V11M10 21V4M15 21v-7M20 21V8"/></svg></button>
     </nav>
 
     <!-- לשונית לידים -->
@@ -487,7 +490,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbw23hVet72TBIaXW-kwBbUi
 const CLOSED_STATUS = 'הזמנה נסגרה';
 const OUT_STATUS = 'לא רלוונטי';
 const CONTACT_STATUS = 'נוצר קשר ראשוני';
-const state = { pin:'', leads:[], statuses:[], reasons:[], statusColors:{}, reasonColors:{}, tasks:[], dirty:false, tab:'leads', filter:'', search:'', editing:null, adding:false };
+const state = { pin:'', leads:[], statuses:[], reasons:[], statusColors:{}, reasonColors:{}, tasks:[], dirty:false, tab:'leads', filter:'new', search:'', editing:null, adding:false };
 const $ = id => document.getElementById(id);
 
 /* ---------- API ---------- */
@@ -635,23 +638,31 @@ function leadCard(l){
     '</div></div>';
 }
 
+/* סרגל הקבוצות: במקום כפתור לכל סטטוס - שלוש קבוצות עבודה, ועוד "הכל".
+   חדשים = עוד לא טופלו. אין מענה = כל סטטוסי "אין מענה". המשך טיפול = כל מה שבתהליך
+   (נוצר קשר, מעוניינת, נשלחה הצעה, וכל סטטוס עתידי). לידים שנסגרו או לא רלוונטיים נמצאים רק ב"הכל". */
+const GROUPS=[['new','חדשים'],['noanswer','אין מענה'],['progress','המשך טיפול'],['all','הכל']];
+function groupOf(l){
+  if(isClosed(l) || isOut(l)) return 'done';
+  const st=l.status||'';
+  if(!st || st==='חדש') return 'new';
+  if(st.startsWith('אין מענה')) return 'noanswer';
+  return 'progress';
+}
 function renderChips(){
-  const counts={};
-  state.leads.forEach(l=>{ const s=l.status||'חדש'; counts[s]=(counts[s]||0)+1; });
-  let html='<button class="chip'+(state.filter===''?' active':'')+'" data-f="">הכל ('+state.leads.length+')</button>';
-  state.statuses.forEach(s=>{
-    html+='<button class="chip'+(state.filter===s?' active':'')+'" data-f="'+esc(s)+'">'+esc(s)+(counts[s]?' ('+counts[s]+')':'')+'</button>';
-  });
-  $('statusChips').innerHTML=html;
+  const counts={all:state.leads.length};
+  state.leads.forEach(l=>{ const g=groupOf(l); counts[g]=(counts[g]||0)+1; });
+  $('statusChips').innerHTML=GROUPS.map(([key,label])=>
+    '<button class="chip'+(state.filter===key?' active':'')+'" data-f="'+key+'"><span>'+label+'</span><b class="num">'+(counts[key]||0)+'</b></button>').join('');
 }
 
 function renderLeads(){
   const q=state.search.trim();
   let list=state.leads.slice().sort((a,b)=>b.row-a.row);
-  if(state.filter) list=list.filter(l=>(l.status||'חדש')===state.filter);
   if(q) list=list.filter(l=>(l.name||'').includes(q) || phoneDigits(l.phone).includes(q.replace(/\D/g,'')||' '));
+  else if(state.filter!=='all') list=list.filter(l=>groupOf(l)===state.filter);   // חיפוש מחפש בכל הלידים, גם מחוץ לקבוצה
   $('leadsList').innerHTML = list.length ? list.map(leadCard).join('') :
-    '<div class="empty">'+(state.leads.length?'לא נמצאו לידים מתאימים לסינון.':'אין עדיין לידים - ברגע שייכנס ליד מהקמפיין הוא יופיע כאן.')+'</div>';
+    '<div class="empty">'+(state.leads.length?(q?'לא נמצא ליד מתאים לחיפוש.':'אין לידים בקבוצה הזו.'):'אין עדיין לידים - ברגע שייכנס ליד מהקמפיין הוא יופיע כאן.')+'</div>';
 }
 
 /* ---------- משימות ----------
