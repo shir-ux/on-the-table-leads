@@ -360,6 +360,9 @@ bdi{unicode-bidi:isolate}
 
     <div class="field"><span class="label">סטטוס</span><div class="picks" id="pStatus" role="group" aria-label="סטטוס"></div><input type="hidden" id="fStatus"></div>
     <input type="hidden" id="fReason">
+    <!-- חלון התיעוד מציג רק סטטוסים. השדות האלה נשארים מוסתרים כי הלוגיקה נשענת עליהם:
+         הדיווח של "לא רלוונטי" וסימון "נסגרה עסקה" עוברים דרכם; תאריך מעקב והערה נערכים בכרטיס עצמו. -->
+    <div hidden>
     <div class="field"><label for="fEvent">תאריך האירוע</label><input id="fEvent" type="date"></div>
     <div class="field"><label for="fFollow">תאריך מעקב</label>
       <div class="dt"><input id="fFollow" type="date"><input id="fFollowTime" type="time" aria-label="שעת מעקב"></div>
@@ -368,6 +371,7 @@ bdi{unicode-bidi:isolate}
     <label class="check"><input id="fClosed" type="checkbox"><span>נסגרה עסקה 🎉</span></label>
     <div class="field"><label for="fValue">שווי הזמנה ₪</label><input id="fValue" type="number" inputmode="decimal" min="0" step="1"></div>
 
+    </div>
     <div class="sheet-btns">
       <button class="btn btn-save" id="saveBtn">שמירה</button>
       <button class="btn btn-cancel" id="cancelBtn">ביטול</button>
