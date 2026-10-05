@@ -415,6 +415,19 @@ bdi{unicode-bidi:isolate}
   </div>
 </div>
 
+<!-- חלון "הזמנה נסגרה": שווי ההזמנה חובה לפני שמירה -->
+<div class="overlay pop" id="winPop" hidden>
+  <div class="popbox" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <h2 id="winTitle">מה שווי ההזמנה?</h2>
+    <div class="sub">הסכום נשמר בטבלה, ו"נסגרה עסקה" מסומן אוטומטית</div>
+    <div class="field"><label for="winValue">שווי הזמנה ₪</label><input id="winValue" type="number" inputmode="decimal" min="0" step="1" placeholder="699"></div>
+    <div class="sheet-btns">
+      <button type="button" class="btn btn-save" id="winSave" disabled>שמירה</button>
+      <button type="button" class="btn btn-cancel" id="winCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
 <!-- בוחר תאריך ושעה למעקב -->
 <div class="overlay pop" id="dtPop" hidden>
   <div class="popbox" role="dialog" aria-modal="true" aria-label="תאריך ושעת מעקב">
@@ -753,8 +766,27 @@ function setPick(boxId, inputId, value){
 $('pStatus').addEventListener('click', e=>{
   const b=e.target.closest('.pick'); if(!b) return;
   if(b.dataset.v===OUT_STATUS){ openOutPop(); return; }   // הסטטוס נקבע רק אחרי שמולאו סיבה ודיווח
+  if(b.dataset.v===CLOSED_STATUS){ openWinPop(); return; } // הסטטוס נקבע רק אחרי שהוזן שווי ההזמנה
   setPick('pStatus','fStatus', $('fStatus').value===b.dataset.v ? '' : b.dataset.v);
-  if($('fStatus').value===CLOSED_STATUS) $('fClosed').checked=true;
+  $('fClosed').checked=false;                              // "נסגרה עסקה" מסומן רק יחד עם הסטטוס "הזמנה נסגרה"
+});
+
+/* ---------- "הזמנה נסגרה": שווי הזמנה חובה, וסימון "נסגרה עסקה" אוטומטי ---------- */
+function winAmount(){ const n=Number($('winValue').value); return n>0 ? n : 0; }
+function openWinPop(){
+  $('winValue').value = Number($('fValue').value)>0 ? $('fValue').value : '';
+  $('winSave').disabled = !winAmount();
+  $('winPop').hidden=false;
+  $('winValue').focus();
+}
+$('winValue').addEventListener('input', ()=>{ $('winSave').disabled = !winAmount(); });
+$('winCancel').addEventListener('click', ()=>{ $('winPop').hidden=true; });
+$('winSave').addEventListener('click', ()=>{
+  $('fValue').value = String(winAmount());
+  $('fClosed').checked = true;
+  setPick('pStatus','fStatus', CLOSED_STATUS);
+  $('winPop').hidden=true;
+  $('saveBtn').click();
 });
 $('pReason').addEventListener('click', e=>{
   const b=e.target.closest('.pick'); if(!b) return;
@@ -778,6 +810,7 @@ $('outCancel').addEventListener('click', ()=>{
 $('outSave').addEventListener('click', ()=>{
   $('fNotes').value = $('outNote').value.trim();
   setPick('pStatus','fStatus', OUT_STATUS);
+  $('fClosed').checked=false;
   $('outPop').hidden=true;
   $('saveBtn').click();
 });
@@ -817,6 +850,7 @@ $('saveBtn').addEventListener('click', async ()=>{
   try{
     if(!$('fFollow').value && $('fFollowTime').value){ toast('כדי לשמור שעה צריך לבחור גם תאריך','bad'); return; }
     if(fields.status===OUT_STATUS && (!fields.reason || !fields.notes.trim())){ openOutPop(); return; }
+    if(fields.status===CLOSED_STATUS && !(Number(fields.value)>0)){ openWinPop(); return; }
     let res;
     if(state.adding){
       const name=$('fName').value.trim(), phone=$('fPhone').value.trim();
