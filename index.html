@@ -126,15 +126,20 @@ bdi{unicode-bidi:isolate}
 .lead-extra span{white-space:nowrap}
 .lead-extra .overdue{color:var(--orange); font-weight:500}
 
-/* תווית סטטוס - ניאון: מילוי בצבע הסטטוס + הילה באותו צבע */
+/* תווית סטטוס - שקופה למחצה בצבע הסטטוס, עם הילה עדינה. נוכחת אבל לא צועקת. */
 .pill{
-  display:inline-block; border-radius:99px; padding:6px 16px; margin-top:10px;
-  font-size:13.5px; font-weight:800; white-space:nowrap;
-  background:var(--c); color:var(--on);
-  box-shadow:0 0 6px var(--c), 0 0 18px color-mix(in srgb, var(--c) 65%, transparent);
+  display:inline-block; border-radius:99px; padding:5px 14px;
+  font-size:13px; font-weight:600; white-space:nowrap;
+  background:color-mix(in srgb, var(--c) 20%, transparent);
+  border:1px solid color-mix(in srgb, var(--c) 50%, transparent);
+  color:color-mix(in srgb, var(--c) 70%, #fff);
+  box-shadow:0 0 10px color-mix(in srgb, var(--c) 28%, transparent);
 }
 
-.lead-side{display:flex; flex-direction:column; gap:10px}
+.lead-side{display:flex; flex-direction:column; align-items:center; gap:10px}
+.lead-btns{display:flex; gap:10px}
+/* תווית ארוכה נשברת לשתי שורות במקום לדחוק את שם הליד */
+.lead-side .pill{max-width:128px; white-space:normal; text-align:center; line-height:1.2; border-radius:16px}
 .round{
   width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   background:var(--paper2); border:1px solid var(--line); color:#fff; text-decoration:none;
@@ -582,12 +587,14 @@ function leadCard(l){
       (l.created?'<div class="lead-date num">'+ICON.cal+esc(fmtDate(l.created))+'</div>':'')+
       '<div class="lead-name">'+esc(l.name||'(ללא שם)')+'</div>'+
       (digits?'<div class="lead-phone num">'+ICON.phone+esc(fmtPhone(l.phone))+'</div>':'')+
-      '<span class="pill" '+colorStyle('status', status)+'>'+esc(status)+'</span>'+
       (extra.length?'<div class="lead-extra num">'+extra.join(' · ')+'</div>':'')+
     '</div>'+
     '<div class="lead-side">'+
+      '<div class="lead-btns">'+
       (digits?'<a class="round wa" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" aria-label="וואטסאפ">'+ICON.wa+'</a>':'')+
       (digits?'<a class="round" href="tel:'+digits+'" data-call="'+l.row+'" aria-label="חיוג">'+ICON.phone+'</a>':'')+
+      '</div>'+
+      '<span class="pill" '+colorStyle('status', status)+'>'+esc(status)+'</span>'+
     '</div>'+
     '<div class="lead-form">'+
       '<div class="lf wide"><div class="lf-label">'+ICON.flag+'סטטוס</div>'+
