@@ -485,7 +485,6 @@ const ICON = {
 
 function leadCard(l){
   const extra=[];
-  if(l.ad) extra.push('<span><bdi>'+esc(l.ad)+'</bdi></span>');
   if(l.eventDate) extra.push('<span>אירוע '+esc(fmtDate(l.eventDate))+'</span>');
   if(leadValue(l)>0) extra.push('<span>שווי '+esc(money(leadValue(l)))+'</span>');
   if(l.reason && isOut(l)) extra.push('<span>סיבה: '+esc(l.reason)+'</span>');
