@@ -459,13 +459,15 @@ function isClosed(l){ return l.closed || l.status===CLOSED_STATUS; }
 function isOut(l){ return l.status===OUT_STATUS; }
 function leadValue(l){ const n=Number(String(l.value||'').replace(/[^\d.\-]/g,'')); return isNaN(n)?0:n; }
 /* צבעי הסטטוסים והסיבות - מקור אחד לכפתורים ולתוויות, כדי שיהיו זהים בכל הדף.
-   קודם כל הצבע מהשיטס (מגיע מה-API, לפי העיצוב המותנה של העמודה). הטבלה כאן היא גיבוי
-   לערך שאין לו צבע בשיטס, ומי שאין לו גם כאן מקבל את צבע ברירת המחדל. */
+   הצבעים בטבלה נקבעו על ידי שיר (6.10.2026) והם גוברים. סטטוס שלא מופיע כאן (למשל סטטוס חדש
+   שנוסף בשיטס) מקבל את הצבע שלו מהשיטס, ואם אין - את צבע ברירת המחדל. */
 const DEFAULT_COLOR = '#B79CB4';
+const C_BLUE='#7FD1FF', C_ORANGE='#FF9A3D', C_GREEN='#3DDC6A', C_PURPLE='#B07CFF', C_RED='#FF4D5E', C_YELLOW='#FFE14D';
 const STATUS_COLORS = {
-  'חדש':'#C0289B', 'נוצר קשר ראשוני':'#7FD1FF', 'אין מענה 1':'#FF9A3D', 'אין מענה 2':'#FF9A3D', 'אין מענה 3':'#FF9A3D',
-  'מעוניינת - לחזור בהמשך':'#B694FF', 'נשלחה הצעה':'#F3A6DD',
-  'הזמנה נסגרה':'#E8BE0E', 'לא רלוונטי':'#8E7F93'
+  'חדש':'#C0289B',
+  'אין מענה':C_BLUE, 'אין מענה 1':C_BLUE, 'אין מענה 2':C_BLUE, 'אין מענה 3':C_BLUE,
+  'מעוניינת - לחזור בהמשך':C_ORANGE,
+  'הזמנה נסגרה':C_GREEN, 'נשלחה הצעה':C_PURPLE, 'לא רלוונטי':C_RED, 'נוצר קשר ראשוני':C_YELLOW
 };
 const REASON_COLORS = {};
 function isHex(c){ return /^#[0-9a-f]{6}$/i.test(c||''); }
@@ -475,9 +477,9 @@ function onColor(hex){                       // טקסט כהה על צבע בה
 }
 function colorStyle(kind, name){
   const sheet = (kind==='status' ? state.statusColors : state.reasonColors)[name] || {};
-  const local = (kind==='status' ? STATUS_COLORS : REASON_COLORS)[name] || DEFAULT_COLOR;
-  const c = isHex(sheet.bg) ? sheet.bg : isHex(sheet.fg) ? sheet.fg : local;
-  const on = isHex(sheet.bg) && isHex(sheet.fg) ? sheet.fg : onColor(c);
+  const local = (kind==='status' ? STATUS_COLORS : REASON_COLORS)[name];
+  const c = local || (isHex(sheet.bg) ? sheet.bg : isHex(sheet.fg) ? sheet.fg : DEFAULT_COLOR);
+  const on = !local && isHex(sheet.bg) && isHex(sheet.fg) ? sheet.fg : onColor(c);
   return 'style="--c:'+c+';--on:'+on+'"';
 }
 function needsFollow(l){
