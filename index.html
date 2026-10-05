@@ -123,7 +123,11 @@ bdi{unicode-bidi:isolate}
 .lead{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px 12px; align-items:start}
 .lead-id{min-width:0}
 .lead-date{display:flex; align-items:center; gap:7px; color:var(--ink2); font-size:13.5px}
-.lead-name{font-weight:800; font-size:21px; line-height:1.2; color:#fff; margin:6px 0 4px; overflow-wrap:anywhere}
+.lead-name{
+  display:block; border:0; background:none; padding:0; text-align:start; font-family:inherit;
+  font-weight:800; font-size:21px; line-height:1.2; color:#fff; margin:6px 0 4px; overflow-wrap:anywhere;
+  text-decoration:underline; text-decoration-color:rgba(232,190,14,.45); text-underline-offset:5px;
+}
 .lead-phone{display:flex; align-items:center; gap:7px; color:var(--ink); font-size:16px}
 .lead-extra{color:var(--mut); font-size:12.5px; margin-top:6px}
 .lead-extra span{white-space:nowrap}
@@ -142,6 +146,33 @@ bdi{unicode-bidi:isolate}
 .lead-side{display:flex; flex-direction:column; align-items:flex-end; gap:10px}
 .lead-btns{display:flex; gap:8px}
 button.round{padding:0; cursor:pointer}
+
+/* ---------- עמוד ליד ---------- */
+.lead-page{position:fixed; inset:0; z-index:35; background:var(--bg); overflow-y:auto;
+  background-image:radial-gradient(rgba(232,190,14,.06) 1.2px, transparent 1.5px); background-size:24px 24px}
+.lp-in{max-width:760px; margin:0 auto; padding:14px 14px 40px}
+.lp-back{
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:12px;
+  height:42px; padding:0 14px; font-size:14.5px; font-weight:500; display:inline-flex; align-items:center; gap:6px;
+}
+.lp-name{font-weight:800; font-size:27px; line-height:1.15; color:#fff; margin:14px 0 6px; overflow-wrap:anywhere}
+.lp-top{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px}
+.lp-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 12px}
+.lp-item{min-width:0}
+.lp-item.wide{grid-column:1 / -1}
+.lp-k{color:var(--gold); font-size:12px; font-weight:600; letter-spacing:.06em; margin-bottom:2px}
+.lp-v{color:var(--ink); font-size:15px; overflow-wrap:anywhere}
+.lp-h{color:#fff; font-weight:700; font-size:16px; margin:0 0 12px}
+.lp-add{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start}
+.lp-add textarea{min-height:48px; resize:vertical}
+.lp-add .btn{height:48px; padding:0 18px}
+.ev{display:grid; grid-template-columns:auto minmax(0,1fr); gap:0 12px; padding:0 0 16px; position:relative}
+.ev:last-child{padding-bottom:0}
+.ev-dot{width:11px; height:11px; border-radius:50%; background:var(--gold); margin-top:5px; box-shadow:0 0 8px rgba(232,190,14,.5)}
+.ev:not(:last-child)::before{content:""; position:absolute; inset-inline-start:5px; top:18px; bottom:0; width:1px; background:var(--line)}
+.ev-type{color:var(--gold); font-weight:600; font-size:13.5px}
+.ev-at{color:var(--mut); font-size:12.5px; margin-inline-start:8px}
+.ev-text{color:var(--ink); font-size:15px; white-space:pre-wrap; overflow-wrap:anywhere}
 
 /* שורת משימה: סימון | תוכן | חיוג */
 .task{display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:center; padding:14px 16px}
@@ -205,6 +236,7 @@ button.round{padding:0; cursor:pointer}
 @media (min-width:900px){
   .lead{grid-template-columns:minmax(220px,1fr) minmax(0,2.4fr) auto; gap:0 22px; align-items:center; padding:22px 24px}
   .lead-id{text-align:center}
+  .lead-id .lead-name{margin-inline:auto; text-align:center}
   .lead-date,.lead-phone{justify-content:center}
   .lead-name{font-size:24px}
   .lead-form{
@@ -384,6 +416,28 @@ button.round{padding:0; cursor:pointer}
 </main>
 
 <button class="fab" id="addBtn" hidden>+ ליד חדש</button>
+
+<!-- עמוד ליד: פרטים מלאים, תיעוד, היסטוריה ותגובות -->
+<div class="lead-page" id="leadPage" hidden>
+  <div class="lp-in">
+    <button type="button" class="lp-back" id="lpBack"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>חזרה לרשימה</button>
+    <div class="lp-name" id="lpName"></div>
+    <div class="lp-top"><span id="lpPill"></span><div class="lead-btns" id="lpBtns"></div></div>
+    <div class="card"><div class="lp-grid" id="lpDetails"></div></div>
+    <div class="card"><button type="button" class="doc-btn" id="lpDoc">תיעוד ליד</button></div>
+    <div class="card">
+      <h3 class="lp-h">הוספת תגובה</h3>
+      <div class="lp-add">
+        <textarea id="lpComment" rows="2" placeholder="מה קרה עם הליד?"></textarea>
+        <button type="button" class="btn btn-save" id="lpSend" disabled>הוספה</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 class="lp-h">היסטוריה</h3>
+      <div id="lpHistory"></div>
+    </div>
+  </div>
+</div>
 
 <!-- חלון עריכה / הוספה -->
 <div class="overlay" id="overlay" hidden>
@@ -615,7 +669,7 @@ function leadCard(l){
   return '<div class="card lead" data-row="'+l.row+'">'+
     '<div class="lead-id">'+
       (l.created?'<div class="lead-date num">'+ICON.cal+esc(fmtDate(l.created))+'</div>':'')+
-      '<div class="lead-name">'+esc(l.name||'(ללא שם)')+'</div>'+
+      '<button type="button" class="lead-name" data-open="'+l.row+'">'+esc(l.name||'(ללא שם)')+'</button>'+
       (digits?'<div class="lead-phone num">'+ICON.phone+esc(fmtPhone(l.phone))+'</div>':'')+
       (extra.length?'<div class="lead-extra num">'+extra.join(' · ')+'</div>':'')+
     '</div>'+
@@ -793,7 +847,7 @@ function barRow(label,count,total){
     '<div class="bar-num num">'+count+'</div></div>';
 }
 
-function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderTasks(); renderSummary(); }
+function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderTasks(); renderSummary(); if(state.viewRow!=null){ renderLeadPage(); loadHistory(); } }
 
 /* שמירה אוטומטית מהכרטיס: תאריך מעקב והערה נשמרים לבד, בלי כפתור.
    תאריך - ברגע האישור בלוח. הערה - כשיוצאים מהשדה (או Enter), ולא בזמן ההקלדה,
@@ -896,6 +950,81 @@ $('dtOk').addEventListener('click', ()=>{
 });
 $('dtClear').addEventListener('click', ()=>applyDt('', ''));
 $('dtCancel').addEventListener('click', ()=>{ $('dtPop').hidden=true; });
+
+/* ---------- עמוד ליד ----------
+   נפתח בלחיצה על שם הליד. מציג את כל פרטי הליד, מאפשר לתעד (אותו חלון סטטוסים),
+   להוסיף תגובה, ולראות את ההיסטוריה. ההיסטוריה נטענת רק כשפותחים ליד, כדי שהרשימה תישאר מהירה. */
+state.viewRow=null;
+function viewedLead(){ return state.viewRow==null ? null : state.leads.find(l=>l.row===state.viewRow); }
+function lpItem(label, value, wide){
+  return value ? '<div class="lp-item'+(wide?' wide':'')+'"><div class="lp-k">'+label+'</div><div class="lp-v">'+esc(value)+'</div></div>' : '';
+}
+function renderLeadPage(){
+  const l=viewedLead();
+  if(!l){ closeLeadPage(); return; }
+  const digits=phoneDigits(l.phone), status=l.status||'חדש';
+  $('lpName').textContent=l.name||'(ללא שם)';
+  $('lpPill').innerHTML='<span class="pill" '+colorStyle('status', status)+'>'+esc(status)+'</span>';
+  $('lpBtns').innerHTML=
+    (digits?'<a class="round wa" href="'+waLink(l.phone)+'" target="_blank" rel="noopener" aria-label="וואטסאפ">'+ICON.wa+'</a>':'')+
+    (digits?'<a class="round" href="tel:'+digits+'" data-call="'+l.row+'" aria-label="חיוג">'+ICON.phone+'</a>':'')+
+    '<button type="button" class="round" data-task="'+l.row+'" aria-label="הוספת משימה">'+ICON.taskAdd+'</button>';
+  $('lpDetails').innerHTML=
+    lpItem('טלפון', fmtPhone(l.phone))+
+    lpItem('תאריך פנייה', l.created)+
+    lpItem('קמפיין', l.campaign, true)+
+    lpItem('קהל', l.audience, true)+
+    lpItem('מודעה', l.ad, true)+
+    lpItem('תאריך מעקב', l.followup ? dueText(l.followup) : '')+
+    lpItem('שווי הזמנה', leadValue(l)>0 ? money(leadValue(l)) : '')+
+    lpItem('סיבת אי-סגירה', isOut(l) ? l.reason : '', true)+
+    lpItem('הערה אחרונה', l.notes, true);
+}
+async function loadHistory(){
+  const l=viewedLead(); if(!l) return;
+  const row=l.row;
+  try{
+    const res=await api('history',{phone:l.phone});
+    if(state.viewRow!==row) return;                 // בינתיים נפתח ליד אחר
+    if(!res.ok){ $('lpHistory').innerHTML='<div class="tmeta">ההיסטוריה לא נטענה. נסי לסגור ולפתוח שוב.</div>'; return; }
+    $('lpHistory').innerHTML = res.events.length ? res.events.map(e=>
+      '<div class="ev"><span class="ev-dot"></span><div><span class="ev-type">'+esc(e.type)+'</span><span class="ev-at num">'+esc(e.at)+'</span>'+
+      '<div class="ev-text">'+esc(e.text)+'</div></div></div>').join('') :
+      '<div class="tmeta">עדיין אין היסטוריה לליד הזה. כל שינוי מעכשיו יירשם כאן.</div>';
+  }catch(err){
+    if(state.viewRow===row) $('lpHistory').innerHTML='<div class="tmeta">אין חיבור - ההיסטוריה לא נטענה.</div>';
+  }
+}
+function openLeadPage(lead){
+  state.viewRow=lead.row;
+  $('lpComment').value=''; $('lpSend').disabled=true;
+  $('lpHistory').innerHTML='<div class="loading"><span class="spin"></span>טוענת היסטוריה...</div>';
+  renderLeadPage();
+  $('leadPage').hidden=false; $('leadPage').scrollTop=0;
+  $('addBtn').hidden=true;
+  loadHistory();
+}
+function closeLeadPage(){
+  state.viewRow=null; $('leadPage').hidden=true;
+  $('addBtn').hidden=$('appView').hidden;
+}
+$('lpBack').addEventListener('click', closeLeadPage);
+$('lpDoc').addEventListener('click', ()=>{ const l=viewedLead(); if(l) openEdit(l); });
+$('lpComment').addEventListener('input', ()=>{ $('lpSend').disabled=!$('lpComment').value.trim(); });
+/* תגובה = הערה חדשה על הליד: נרשמת בהיסטוריה, ונשמרת גם כ"הערה אחרונה" בגיליון הלידים */
+$('lpSend').addEventListener('click', async ()=>{
+  const l=viewedLead(), text=$('lpComment').value.trim();
+  if(!l || !text) return;
+  $('lpSend').disabled=true;
+  try{
+    const res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields:{notes:text}});
+    if(res.ok){ l.notes=text; $('lpComment').value=''; renderAll(); toast('התגובה נוספה ✓','ok'); }
+    else if(res.error==='bad_pin') logout();
+    else{ toast('התגובה לא נשמרה - נסי שוב','bad'); $('lpSend').disabled=false; }
+  }catch(err){
+    toast('לא נשמר - אין חיבור. נסי שוב','bad'); $('lpSend').disabled=false;
+  }
+});
 
 /* ---------- tabs ---------- */
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -1078,6 +1207,8 @@ document.addEventListener('click', e=>{
     if(called) markContacted(called);
     return;
   }
+  const open=e.target.closest('[data-open]');
+  if(open){ const l=state.leads.find(x=>x.row===+open.dataset.open); if(l) openLeadPage(l); return; }
   const dt=e.target.closest('[data-dt]');
   if(dt){ openDt(dt); return; }
   const done=e.target.closest('[data-done]');
@@ -1133,6 +1264,7 @@ async function loadLeads(showSpinner){
 function logout(){
   try{ localStorage.removeItem('otb_pin'); }catch(e){}
   state.pin='';
+  state.viewRow=null; $('leadPage').hidden=true;
   $('appView').hidden=true; $('addBtn').hidden=true; $('loginView').hidden=false;
   $('loginErr').textContent='הקוד לא נכון או התחלף - נסי שוב';
 }
