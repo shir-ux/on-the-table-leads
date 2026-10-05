@@ -43,8 +43,9 @@ const env={ SpreadsheetApp:{ getActive:()=>ss, DataValidationCriteria:{VALUE_IN_
   ContentService:{ createTextOutput:t=>({t, setMimeType(){return this;}}), MimeType:{JSON:'json'} } };
 const src=JSON.parse(document.getElementById('gsSrc').textContent).replace("var PIN = 'CHANGE_ME'","var PIN = 'T'");
 const doPost=new Function(...Object.keys(env), src+'; return doPost;')(...Object.values(env));
-let badPin=false; const calls=[];
+let badPin=false; const calls=[]; const failNext={};   // failNext[action]=n: n הבקשות הבאות מהסוג הזה נופלות ברשת
 window.fetch=async(u,o)=>{ const b=JSON.parse(o.body); if(badPin) b.pin='zzz'; calls.push(b);
+  if(failNext[b.action]>0){ failNext[b.action]--; throw new TypeError('Load failed'); }
   const out=JSON.parse(doPost({postData:{contents:JSON.stringify(b)}}).t); return {ok:true, json:async()=>out}; };
 
 const wait=ms=>new Promise(x=>setTimeout(x,ms)), settle=()=>wait(120);
@@ -80,6 +81,9 @@ await T(16,'סימון משימה כבוצעה, הצגה ב"בוצעו" בכרט
 await T(17,'כרטיס לקוח: פרטים, תגיות מקור, תגובה שנכנסת להיסטוריה (החדשה ראשונה)',async()=>{ document.querySelector('.ltab[data-lptab=details]').click(); const tags=[...document.querySelectorAll('#lpDetails .tag')].map(t=>t.textContent); const upd=$('lpUpdated').textContent; type($('lpComment'),'תגובה מהכרטיס'); $('lpSend').click(); await settle(); await wait(150); const first=(document.querySelector('#lpHistory .ev-text')||{}).textContent; return ok(tags.length===3&&tags[1].includes('קהל רגיל')&&/\d\d\.\d\d\.\d{4}/.test(upd)&&cell(3,'notes')==='תגובה מהכרטיס'&&first==='תגובה מהכרטיס'&&document.querySelectorAll('#lpHistory .ev').length>=5,{tags,upd,first,n:document.querySelectorAll('#lpHistory .ev').length}); });
 await T(18,'תאריך מעקב מתוך כרטיס הלקוח נשמר',async()=>{ $('lpFollow').click(); await pickDate(22,'14:00'); const v=cell(3,'followup'); return ok(v instanceof Date&&v.getDate()===22&&v.getHours()===14&&!$('leadPage').hidden,String(v)); });
 await T(19,'קישור אישי לליד (#lead=שורה) פותח את הליד הנכון',async()=>{ $('lpBack').click(); history.replaceState(null,'','#lead=5'); window.dispatchEvent(new HashChangeEvent('hashchange')); await settle(); const t=$('sheetTitle').textContent, o=!$('overlay').hidden; closeEdit(); history.replaceState(null,'','#'); return ok(o&&t==='שרה',{o,t}); });
+await T(19.1,'בקשת היסטוריה שנופלת ברשת מנסה שוב לבד, בלי הודעת שגיאה',async()=>{ failNext.history=1; openLeadPage(state.leads.find(l=>l.row===3)); await wait(1500); const txt=$('lpHistory').textContent, n=document.querySelectorAll('#lpHistory .ev').length; $('lpBack').click(); return ok(n>=5&&!txt.includes('לא נטענה'),{n,txt:txt.slice(0,60)}); });
+await T(19.2,'אם גם הניסיונות החוזרים נכשלים: הודעה וכפתור "נסי שוב" שעובד',async()=>{ failNext.history=3; openLeadPage(state.leads.find(l=>l.row===3)); await wait(4200); const hasBtn=!!$('lpRetry'); if(hasBtn) $('lpRetry').click(); await settle(); const n=document.querySelectorAll('#lpHistory .ev').length; $('lpBack').click(); return ok(hasBtn&&n>=5,{hasBtn,n}); });
+await T(19.3,'בקשת כתיבה שנופלת לא נשלחת פעמיים',async()=>{ const before=calls.filter(c=>c.action==='update').length; failNext.update=1; card(4).querySelector('.doc-btn').click(); pick('אין מענה 3').click(); await wait(1500); const sent=calls.filter(c=>c.action==='update').length-before; const st=cell(4,'status'); closeEdit(); await loadLeads(false); return ok(sent===1&&st==='נשלחה הצעה',{sent,st}); });
 await T(20,'הגיליון מוין מאחורי הגב: הדף לא כותב לשורה הלא נכונה',async()=>{ const a=L.rows[5].slice(), b=L.rows[6].slice(); L.rows[5]=b; L.rows[6]=a; card(6).querySelector('.doc-btn').click(); pick('אין מענה 3').click(); await settle(); await wait(150); const wrote=L.rows.some(r=>r[C.status]==='אין מענה 3'); closeEdit(); return ok(!wrote,{wrote}); });
 await T(21,'קוד כניסה שהוחלף באמצע עבודה מחזיר למסך הכניסה',async()=>{ badPin=true; await loadLeads(false); await settle(); const r=$('appView').hidden&&!$('loginView').hidden; badPin=false; return ok(r,{app:$('appView').hidden,login:$('loginView').hidden}); });
 await T(22,'אין שגיאות קוד בדף לאורך כל הריצה',async()=>ok(errors.length===0,errors));

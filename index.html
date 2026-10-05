@@ -183,6 +183,7 @@ button.round{padding:0; cursor:pointer}
   padding:0 6px; background:var(--mag); color:#fff; font-size:11.5px; font-weight:800;
 }
 .lp-newtask{justify-content:center; margin-bottom:12px}
+.lp-retry{margin-top:10px}
 /* משימה שבוצעה: סימון מלא, טקסט מחוק ומעומעם */
 .task.done{opacity:.72}
 .task.done .tcheck{background:var(--gold); color:var(--bg)}
@@ -648,7 +649,12 @@ const state = { pin:'', leads:[], statuses:[], reasons:[], statusColors:{}, reas
 const $ = id => document.getElementById(id);
 
 /* ---------- API ---------- */
-async function api(action, payload={}){
+/* בקשות קריאה מנסות שוב לבד אם נכשלו ברשת. בטלפון זה קורה בעיקר ברגע החזרה לדף
+   מאפליקציה אחרת (אחרי חיוג או וואטסאפ), כשהחיבור הקודם כבר נסגר והבקשה הראשונה נופלת.
+   בקשות כתיבה לא חוזרות לבד: אם הראשונה כן הגיעה לשרת, ניסיון שני היה כותב פעמיים. */
+const READ_ACTIONS=['list','history','tasksDone'];
+const RETRY_DELAYS=[900, 2200];
+async function apiOnce(action, payload){
   const res = await fetch(API_URL, {
     method:'POST',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -656,6 +662,16 @@ async function api(action, payload={}){
   });
   if(!res.ok) throw new Error('http_'+res.status);
   return res.json();
+}
+async function api(action, payload={}){
+  const tries = READ_ACTIONS.includes(action) ? RETRY_DELAYS.length+1 : 1;
+  for(let i=0; ; i++){
+    try{ return await apiOnce(action, payload); }
+    catch(err){
+      if(i>=tries-1) throw err;
+      await new Promise(r=>setTimeout(r, RETRY_DELAYS[i]));
+    }
+  }
 }
 
 /* ---------- dates & phones ---------- */
@@ -1208,7 +1224,7 @@ async function loadHistory(){
       '<div class="ev-text">'+esc(e.text)+'</div></div></div>').join('') :
       '<div class="tmeta">עדיין אין היסטוריה לליד הזה. כל שינוי מעכשיו יירשם כאן.</div>';
   }catch(err){
-    if(state.viewRow===row) $('lpHistory').innerHTML='<div class="tmeta">אין חיבור - ההיסטוריה לא נטענה.</div>';
+    if(state.viewRow===row) $('lpHistory').innerHTML='<div class="tmeta">ההיסטוריה לא נטענה כרגע.</div><button type="button" class="lp-back lp-retry" id="lpRetry">נסי שוב</button>';
   }
 }
 function openLeadPage(lead){
@@ -1425,6 +1441,10 @@ document.addEventListener('click', e=>{
     const called=state.leads.find(l=>l.row===+call.dataset.call);
     if(called) markContacted(called);
     return;
+  }
+  if(e.target.closest('#lpRetry')){
+    $('lpHistory').innerHTML='<div class="loading"><span class="spin"></span>טוענת היסטוריה...</div>';
+    loadHistory(); return;
   }
   const open=e.target.closest('[data-open]');
   if(open){ const l=state.leads.find(x=>x.row===+open.dataset.open); if(l) openLeadPage(l); return; }
