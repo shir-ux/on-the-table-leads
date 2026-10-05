@@ -183,6 +183,10 @@ button.round{padding:0; cursor:pointer}
   padding:0 6px; background:var(--mag); color:#fff; font-size:11.5px; font-weight:800;
 }
 .lp-newtask{justify-content:center; margin-bottom:12px}
+/* משימה שבוצעה: סימון מלא, טקסט מחוק ומעומעם */
+.task.done{opacity:.72}
+.task.done .tcheck{background:var(--gold); color:var(--bg)}
+.task.done .ttext{text-decoration:line-through; text-decoration-color:var(--mut); font-weight:500; color:var(--ink2)}
 .lp-sec{color:#fff; font-weight:700; font-size:15px; margin:0 0 2px}
 .lp-rows + .lp-sec{margin-top:20px}
 .lp-row{
@@ -524,6 +528,7 @@ span.tag.who{cursor:default}
     <div id="lpTabTasks" hidden>
       <button type="button" class="doc-btn lp-newtask" id="lpNewTask">משימה חדשה</button>
       <div id="lpTasks"></div>
+      <div id="lpDone"></div>
     </div>
   </div>
 </div>
@@ -963,7 +968,7 @@ function barRow(label,count,total){
     '<div class="bar-num num">'+count+'</div></div>';
 }
 
-function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderTasks(); renderSummary(); if(state.viewRow!=null){ renderLeadPage(); loadHistory(); } }
+function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderTasks(); renderSummary(); if(state.viewRow!=null){ renderLeadPage(); renderDoneTasks(); loadHistory(); loadDoneTasks(); } }
 
 /* שמירה אוטומטית מהכרטיס: תאריך מעקב והערה נשמרים לבד, בלי כפתור.
    תאריך - ברגע האישור בלוח. הערה - כשיוצאים מהשדה (או Enter), ולא בזמן ההקלדה,
@@ -1092,6 +1097,43 @@ $('dtCancel').addEventListener('click', ()=>{ $('dtPop').hidden=true; });
    להוסיף תגובה, ולראות את ההיסטוריה. ההיסטוריה נטענת רק כשפותחים ליד, כדי שהרשימה תישאר מהירה. */
 state.viewRow=null;
 state.viewTab='details';
+state.doneTasks=[];
+/* משימות שבוצעו של הליד הפתוח. נטענות מהשיטס רק כשפותחים ליד, כמו ההיסטוריה.
+   לחיצה על הסימון המלא פותחת את המשימה מחדש - לתיקון סימון בטעות. */
+function renderDoneTasks(){
+  $('lpDone').innerHTML = state.doneTasks.length ?
+    '<div class="section-title">בוצעו <span class="count">'+state.doneTasks.length+'</span></div>'+
+    state.doneTasks.map(t=>'<div class="card task done" data-id="'+esc(t.id)+'">'+
+      '<button type="button" class="tcheck" data-undone aria-label="פתיחת המשימה מחדש">'+ICON.check+'</button>'+
+      '<div class="tbody"><div class="ttext">'+esc(t.text)+'</div>'+
+      (t.doneAt?'<div class="tline"><span class="tdue num">'+ICON.check+'בוצע ב-'+esc(dueText(t.doneAt))+'</span></div>':'')+
+      '</div></div>').join('') : '';
+}
+async function loadDoneTasks(){
+  const l=viewedLead(); if(!l) return;
+  const row=l.row;
+  try{
+    const res=await api('tasksDone',{phone:l.phone});
+    if(state.viewRow!==row || !res.ok) return;
+    state.doneTasks=res.tasks||[]; renderDoneTasks();
+  }catch(err){}
+}
+async function reopenTask(id, btn){
+  const t=state.doneTasks.find(x=>x.id===id); if(!t) return;
+  btn.disabled=true;
+  try{
+    const res=await api('taskDone',{id, done:false});
+    if(res.ok){
+      state.doneTasks=state.doneTasks.filter(x=>x.id!==id);
+      state.tasks.push({id:t.id, leadName:t.leadName, leadPhone:t.leadPhone, text:t.text, due:t.due});
+      renderAll(); toast('המשימה נפתחה מחדש','ok');
+    }
+    else if(res.error==='bad_pin') logout();
+    else{ toast('לא נשמר - נסי שוב','bad'); btn.disabled=false; }
+  }catch(err){
+    toast('לא נשמר - אין חיבור. נסי שוב','bad'); btn.disabled=false;
+  }
+}
 function showLeadTab(name){
   state.viewTab=name;
   document.querySelectorAll('.ltab').forEach(b=>b.classList.toggle('active', b.dataset.lptab===name));
@@ -1166,12 +1208,13 @@ async function loadHistory(){
 function openLeadPage(lead){
   state.viewRow=lead.row;
   showLeadTab('details');
+  state.doneTasks=[]; renderDoneTasks();
   $('lpComment').value=''; $('lpSend').disabled=true;
   $('lpHistory').innerHTML='<div class="loading"><span class="spin"></span>טוענת היסטוריה...</div>';
   renderLeadPage();
   $('leadPage').hidden=false; $('leadPage').scrollTop=0;
   $('addBtn').hidden=true;
-  loadHistory();
+  loadHistory(); loadDoneTasks();
 }
 function closeLeadPage(){
   state.viewRow=null; $('leadPage').hidden=true;
@@ -1381,6 +1424,8 @@ document.addEventListener('click', e=>{
   if(open){ const l=state.leads.find(x=>x.row===+open.dataset.open); if(l) openLeadPage(l); return; }
   const dt=e.target.closest('[data-dt]');
   if(dt){ openDt(dt); return; }
+  const undone=e.target.closest('[data-undone]');
+  if(undone){ reopenTask(undone.closest('.task').dataset.id, undone); return; }
   const done=e.target.closest('[data-done]');
   if(done){ const row=done.closest('.task'); completeTask(row.dataset.kind, row.dataset.key, done); return; }
   const addTask=e.target.closest('[data-task]');

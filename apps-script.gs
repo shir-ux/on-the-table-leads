@@ -58,6 +58,8 @@ function doPost(e) {
       res = withLock(function () { return addLead(req); });
     } else if (req.action === 'history') {
       res = leadHistory(req);
+    } else if (req.action === 'tasksDone') {
+      res = doneTasks(req);
     } else if (req.action === 'taskAdd') {
       res = withLock(function () { return addTask(req); });
     } else if (req.action === 'taskDone') {
@@ -436,6 +438,25 @@ function listTasks() {
   return out;
 }
 
+// המשימות שבוצעו של ליד אחד (לפי טלפון), מהחדשה לישנה. נטען רק כשפותחים את הליד.
+function doneTasks(req) {
+  var out = [];
+  var key = phoneKey(req.phone);
+  var sheet = getTasksSheet(false);
+  if (!key || !sheet || sheet.getLastRow() < 2) return { ok: true, tasks: out };
+  var n = sheet.getLastRow() - 1;
+  var vals = sheet.getRange(2, 1, n, 8).getValues();
+  var shown = sheet.getRange(2, 1, n, 8).getDisplayValues();
+  for (var i = n - 1; i >= 0 && out.length < 50; i--) {
+    if (vals[i][6] !== true || !String(vals[i][0]).trim() || phoneKey(shown[i][3]) !== key) continue;
+    out.push({
+      id: String(vals[i][0]), leadName: shown[i][2], leadPhone: shown[i][3],
+      text: shown[i][4], due: followupText(vals[i][5], shown[i][5]), doneAt: shown[i][7]
+    });
+  }
+  return { ok: true, tasks: out };
+}
+
 function addTask(req) {
   var f = req.fields || {};
   var text = norm(f.text);
@@ -479,6 +500,12 @@ function setTaskDone(req) {
         var t = sheet.getRange(i + 2, TASK_COL.name, 1, 3).getDisplayValues()[0]; // שם, טלפון, משימה
         logEvent(t[0], t[1], 'משימה בוצעה', t[2]);
         stampUpdatedByPhone(t[1]);
+      } catch (err) {}
+    } else {
+      try {
+        var back = sheet.getRange(i + 2, TASK_COL.name, 1, 3).getDisplayValues()[0];
+        logEvent(back[0], back[1], 'משימה נפתחה מחדש', back[2]);
+        stampUpdatedByPhone(back[1]);
       } catch (err) {}
     }
     return { ok: true };
