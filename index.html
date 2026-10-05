@@ -166,6 +166,9 @@ button.round{padding:0; cursor:pointer}
   padding:9px 0; border-bottom:1px solid var(--line);
 }
 .lp-rows .lp-row:last-child{border-bottom:0}
+/* שורה של שני תאריכים זה מול זה: התווית מעל הערך, כי "תאריך כניסת הליד" ארוכה מעמודת התוויות */
+.lp-row.two{grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start}
+.lp-row.two .lp-v{margin-top:4px}
 .lp-k{display:flex; align-items:center; gap:8px; color:var(--mut); font-size:13.5px}
 .lp-k .ico{width:17px; height:17px; color:var(--gold)}
 .lp-v{color:#fff; font-size:14.5px; font-weight:500; overflow-wrap:anywhere; min-width:0}
@@ -642,7 +645,7 @@ function isClosed(l){ return l.closed || l.status===CLOSED_STATUS; }
 function isOut(l){ return l.status===OUT_STATUS; }
 function leadValue(l){ const n=Number(String(l.value||'').replace(/[^\d.\-]/g,'')); return isNaN(n)?0:n; }
 /* צבעי הסטטוסים והסיבות - מקור אחד לכפתורים ולתוויות, כדי שיהיו זהים בכל הדף.
-   הצבעים בטבלה נקבעו על ידי שיר (6.10.2026) והם גוברים. סטטוס שלא מופיע כאן (למשל סטטוס חדש
+   הצבעים בטבלה נקבעו על ידי שיר (5.10.2026) והם גוברים. סטטוס שלא מופיע כאן (למשל סטטוס חדש
    שנוסף בשיטס) מקבל את הצבע שלו מהשיטס, ואם אין - את צבע ברירת המחדל. */
 const DEFAULT_COLOR = '#B79CB4';
 const C_BLUE='#7FD1FF', C_ORANGE='#FF9A3D', C_GREEN='#3DDC6A', C_PURPLE='#B07CFF', C_RED='#FF4D5E', C_YELLOW='#FFE14D';
@@ -692,6 +695,7 @@ const ICON = {
   taskAdd:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M12 8v8M8 12h8"/></svg>',
   users:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.6A6.5 6.5 0 0 1 21.5 20"/></svg>',
   image:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="9.5" r="1"/></svg>',
+  clock:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   chev:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
   wa:'<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'
 };
@@ -811,7 +815,7 @@ async function completeTask(kind, key, btn){
       const l=state.leads.find(x=>String(x.row)===key);
       if(!l){ renderAll(); return; }
       res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields:{followup:''}});
-      if(res.ok) l.followup='';
+      if(res.ok){ l.followup=''; touch(l); }
     }
     if(res.ok){
       if(kind==='task') state.tasks=state.tasks.filter(t=>t.id!==key);
@@ -846,7 +850,7 @@ $('taskSave').addEventListener('click', async ()=>{
       leadName:taskLead.name||'', leadPhone:phoneDigits(taskLead.phone),
       text:$('taskText').value.trim(), due:joinFollow(due.dataset.date||'', due.dataset.time||'')
     }});
-    if(res.ok){ state.tasks.push(res.task); $('taskPop').hidden=true; renderTasks(); toast('המשימה נוספה ✓','ok'); }
+    if(res.ok){ state.tasks.push(res.task); touch(taskLead); $('taskPop').hidden=true; renderAll(); toast('המשימה נוספה ✓','ok'); }
     else if(res.error==='bad_pin') logout();
     else{ toast('המשימה לא נשמרה - נסי שוב','bad'); btn.disabled=false; }
   }catch(err){
@@ -896,6 +900,10 @@ function toSheetFollow(iso){                    // "2026-10-15T16:30" -> "15-10-
   const p=iso.split('T'), d=p[0].split('-');
   return d[2]+'-'+d[1]+'-'+d[0]+(p[1] ? ' '+p[1] : '');
 }
+function touch(lead){                           // "עדכון אחרון" מקומי, באותו פורמט שהשיטס מחזיר
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  lead.updated=p(d.getDate())+'-'+p(d.getMonth()+1)+'-'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
 function typingInCard(){ const a=document.activeElement; return !!(a && a.matches && a.matches('[data-q=notes]')); }
 async function autoSaveCard(card){
   const lead=state.leads.find(l=>l.row===+card.dataset.row);
@@ -910,6 +918,7 @@ async function autoSaveCard(card){
     if(res.ok){
       if('followup' in fields) lead.followup=toSheetFollow(fields.followup);
       if('notes' in fields) lead.notes=fields.notes;
+      touch(lead);
       toast('נשמר ✓','ok');
       if(!typingInCard()){ renderAll(); }          // מעדכן את לשונית הפולואפ והמונה; לא בזמן הקלדה
     }
@@ -984,7 +993,7 @@ async function saveLeadPageFollow(date, time){
   if(!Object.keys(fields).length) return;
   try{
     const res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields});
-    if(res.ok){ l.followup=toSheetFollow(fields.followup); renderAll(); toast('נשמר ✓','ok'); }
+    if(res.ok){ l.followup=toSheetFollow(fields.followup); touch(l); renderAll(); toast('נשמר ✓','ok'); }
     else if(res.error==='bad_pin') logout();
     else{ toast('לא נשמר - הרשימה רועננה, נסי שוב','bad'); await loadLeads(false); }
   }catch(err){
@@ -1039,7 +1048,10 @@ function renderLeadPage(){
   $('lpDetails').innerHTML=
     lpGroup('פרטי הליד',
       lpRow(ICON.phone, 'טלפון', digits ? '<span class="num">'+esc(fmtPhone(l.phone))+'</span>' : '')+
-      lpRow(ICON.cal, 'הגיע', l.created ? '<span class="num">'+esc(parseDate(l.created) ? dueText(l.created) : l.created)+'</span>' : '')+
+      '<div class="lp-row two">'+
+        '<div><div class="lp-k">'+ICON.cal+'תאריך כניסת הליד</div><div class="lp-v num">'+esc(l.created ? (parseDate(l.created) ? dueText(l.created) : l.created) : '-')+'</div></div>'+
+        '<div><div class="lp-k">'+ICON.clock+'עדכון אחרון</div><div class="lp-v num" id="lpUpdated">'+esc(l.updated ? dueText(l.updated) : 'עדיין לא עודכן')+'</div></div>'+
+      '</div>'+
       lpRow(ICON.check, 'שווי', leadValue(l)>0 ? '<span class="num">'+esc(money(leadValue(l)))+'</span>' : '')+
       lpRow(ICON.flag, 'סיבה', isOut(l) && l.reason ? esc(l.reason) : ''))+
     lpGroup('מאיפה הגיע',
@@ -1055,6 +1067,7 @@ async function loadHistory(){
     const res=await api('history',{phone:l.phone});
     if(state.viewRow!==row) return;                 // בינתיים נפתח ליד אחר
     if(!res.ok){ $('lpHistory').innerHTML='<div class="tmeta">ההיסטוריה לא נטענה. נסי לסגור ולפתוח שוב.</div>'; return; }
+    if(!l.updated && res.events.length && $('lpUpdated')) $('lpUpdated').textContent=res.events[0].at.replace(' ', ' · ');
     $('lpHistory').innerHTML = res.events.length ? res.events.map(e=>
       '<div class="ev"><span class="ev-dot"></span><div><span class="ev-type">'+esc(e.type)+'</span><span class="ev-at num">'+esc(e.at)+'</span>'+
       '<div class="ev-text">'+esc(e.text)+'</div></div></div>').join('') :
@@ -1086,7 +1099,7 @@ $('lpSend').addEventListener('click', async ()=>{
   $('lpSend').disabled=true;
   try{
     const res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields:{notes:text}});
-    if(res.ok){ l.notes=text; $('lpComment').value=''; renderAll(); toast('התגובה נוספה ✓','ok'); }
+    if(res.ok){ l.notes=text; touch(l); $('lpComment').value=''; renderAll(); toast('התגובה נוספה ✓','ok'); }
     else if(res.error==='bad_pin') logout();
     else{ toast('התגובה לא נשמרה - נסי שוב','bad'); $('lpSend').disabled=false; }
   }catch(err){
@@ -1255,7 +1268,7 @@ async function markContacted(lead){
   try{
     const res=await api('update',{row:lead.row, expect:{name:lead.name, phone:lead.phone}, fields:{status:CONTACT_STATUS}});
     if(res.ok){
-      lead.status=CONTACT_STATUS;
+      lead.status=CONTACT_STATUS; touch(lead);
       if(state.dirty){              // יש הקלדה שלא נשמרה - מעדכנים רק את התווית, לא מציירים מחדש
         document.querySelectorAll('.lead[data-row="'+lead.row+'"] .pill').forEach(el=>{ el.outerHTML='<span class="pill" '+colorStyle('status',CONTACT_STATUS)+'>'+esc(CONTACT_STATUS)+'</span>'; });
       }else renderAll();

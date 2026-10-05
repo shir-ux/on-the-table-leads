@@ -30,7 +30,8 @@ var HEADERS = {
   notes: ['דיווח והערות', 'הערות'],
   followup: ['תאריך פולואפ', 'תאריך מעקב'],
   closed: ['נסגרה עסקה'],
-  value: ['שווי הזמנה']
+  value: ['שווי הזמנה'],
+  updated: ['עדכון אחרון', 'תאריך עדכון אחרון']
 };
 var REQUIRED_FIELDS = ['name', 'phone', 'status'];
 var COL = {};        // שדה -> מספר עמודה (1-based). מתמלא ב-readLayout בכל בקשה
@@ -134,6 +135,7 @@ function listLeads() {
   if (lastRow > hr) {
     var vals = sheet.getRange(hr + 1, 1, lastRow - hr, sheet.getLastColumn()).getDisplayValues();
     var followRaw = COL.followup ? sheet.getRange(hr + 1, COL.followup, lastRow - hr, 1).getValues() : null;
+    var updatedRaw = COL.updated ? sheet.getRange(hr + 1, COL.updated, lastRow - hr, 1).getValues() : null;
     for (var i = 0; i < vals.length; i++) {
       var v = vals[i];
       // שורה נחשבת ליד רק אם יש בה שם, טלפון או תאריך פנייה
@@ -145,7 +147,8 @@ function listLeads() {
         campaign: cell(v, 'campaign'), ad: cell(v, 'ad'), audience: cell(v, 'audience'),
         status: cell(v, 'status'), reason: cell(v, 'reason'), notes: cell(v, 'notes'),
         followup: followRaw ? followupText(followRaw[i][0], cell(v, 'followup')) : '',
-        closed: cell(v, 'closed').toUpperCase() === 'TRUE', value: cell(v, 'value')
+        closed: cell(v, 'closed').toUpperCase() === 'TRUE', value: cell(v, 'value'),
+        updated: updatedRaw ? followupText(updatedRaw[i][0], cell(v, 'updated')) : ''
       });
     }
   }
@@ -273,7 +276,29 @@ function updateLead(req) {
     writeCell(sheet, row, key, fields[key]);
   }
   logChanges(cell(before, 'name'), cell(before, 'phone'), before, fields);
+  stampUpdated(sheet, row);
   return { ok: true };
+}
+
+// חותמת "עדכון אחרון": תאריך ושעה של השינוי האחרון בליד, בעמודה משלה בגיליון הלידים.
+// כך אפשר למיין ולסנן לפיה גם בשיטס עצמו. אם אין עמודה בשם הזה - לא נכתב כלום.
+function stampUpdated(sheet, row) {
+  if (!COL.updated) return;
+  sheet.getRange(row, COL.updated).setValue(new Date()).setNumberFormat('dd/MM/yyyy HH:mm');
+}
+
+// משימה שנוספה או בוצעה נחשבת גם היא עדכון של הליד. הליד מאותר לפי טלפון.
+function stampUpdatedByPhone(phone) {
+  try {
+    var key = phoneKey(phone);
+    if (!key) return;
+    var sheet = getSheet();
+    if (!COL.updated || sheet.getLastRow() <= HEADER_ROW) return;
+    var phones = sheet.getRange(HEADER_ROW + 1, COL.phone, sheet.getLastRow() - HEADER_ROW, 1).getDisplayValues();
+    for (var i = 0; i < phones.length; i++) {
+      if (phoneKey(phones[i][0]) === key) { stampUpdated(sheet, HEADER_ROW + 1 + i); return; }
+    }
+  } catch (err) {}
 }
 
 // רושם בהיסטוריה את מה שהשתנה. כישלון ברישום לא מכשיל את השמירה עצמה.
@@ -434,6 +459,7 @@ function addTask(req) {
     logEvent(String(f.leadName || ''), String(f.leadPhone || ''), 'משימה',
              text + (due instanceof Date ? ' · עד ' + followupText(due, '') : ''));
   } catch (err) {}
+  stampUpdatedByPhone(f.leadPhone);
   return { ok: true, task: { id: id, leadName: String(f.leadName || ''), leadPhone: String(f.leadPhone || ''),
                              text: text, due: followupText(due, '') } };
 }
@@ -452,6 +478,7 @@ function setTaskDone(req) {
       try {
         var t = sheet.getRange(i + 2, TASK_COL.name, 1, 3).getDisplayValues()[0]; // שם, טלפון, משימה
         logEvent(t[0], t[1], 'משימה בוצעה', t[2]);
+        stampUpdatedByPhone(t[1]);
       } catch (err) {}
     }
     return { ok: true };
