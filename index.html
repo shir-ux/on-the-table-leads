@@ -150,6 +150,8 @@ bdi{unicode-bidi:isolate}
 .lf.wide{grid-column:1 / -1}
 .lf-label{display:flex; align-items:center; gap:7px; color:var(--ink2); font-size:13.5px; margin-bottom:7px}
 .lf input{height:48px; border-radius:14px; background:var(--paper2)}
+.dt{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:8px}
+.dt input{padding-inline:10px}
 .lf input.due{border-color:var(--orange)}
 .doc-btn{
   width:100%; height:48px; border:0; border-radius:14px; padding:0 16px;
@@ -169,7 +171,7 @@ bdi{unicode-bidi:isolate}
   .lead-date,.lead-phone{justify-content:center}
   .lead-name{font-size:24px}
   .lead-form{
-    grid-column:auto; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 16px;
+    grid-column:auto; grid-template-columns:minmax(0,1fr) minmax(0,1.7fr) minmax(0,1.2fr); gap:10px 16px;
     border-top:0; padding-top:0; border-inline:1px solid var(--line); padding-inline:22px;
   }
   .lf.wide{grid-column:auto}
@@ -358,9 +360,9 @@ bdi{unicode-bidi:isolate}
 
     <div class="field"><span class="label">סטטוס</span><div class="picks" id="pStatus" role="group" aria-label="סטטוס"></div><input type="hidden" id="fStatus"></div>
     <input type="hidden" id="fReason">
-    <div class="field-row">
-      <div class="field"><label for="fEvent">תאריך האירוע</label><input id="fEvent" type="date"></div>
-      <div class="field"><label for="fFollow">תאריך פולואפ</label><input id="fFollow" type="date"></div>
+    <div class="field"><label for="fEvent">תאריך האירוע</label><input id="fEvent" type="date"></div>
+    <div class="field"><label for="fFollow">תאריך מעקב</label>
+      <div class="dt"><input id="fFollow" type="date"><input id="fFollowTime" type="time" aria-label="שעת מעקב"></div>
     </div>
     <div class="field"><label for="fNotes">דיווח והערות</label><textarea id="fNotes" rows="3"></textarea></div>
     <label class="check"><input id="fClosed" type="checkbox"><span>נסגרה עסקה 🎉</span></label>
@@ -421,6 +423,25 @@ function toInputDate(s){
 function fmtDate(s){
   const d = parseDate(s);
   return d ? String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear() : (s||'');
+}
+function toInputTime(s){                      // "04-10-2026 14:30" -> "14:30"
+  const m = /\d{4}\D+(\d{1,2}):(\d{2})/.exec(String(s||''));
+  return m ? m[1].padStart(2,'0')+':'+m[2] : '';
+}
+function joinFollow(date, time){ return date ? (time ? date+'T'+time : date) : ''; }
+/* שולחים לשיטס רק שדות שהמשתמשת באמת שינתה. כך תא שהדף לא יודע לקרוא
+   (למשל טקסט בעמודה שאמורה להכיל תאריך) לא נדרס בערך ריק בזמן שמירה של שדה אחר. */
+function loadedValues(l){
+  return {
+    eventDate:toInputDate(l.eventDate), status:l.status||'', notes:l.notes||'',
+    followup:joinFollow(toInputDate(l.followup), toInputTime(l.followup)),
+    closed:!!l.closed, value:leadValue(l)>0 ? String(leadValue(l)) : ''
+  };
+}
+function onlyChanged(fields, lead){
+  const was=loadedValues(lead), out={};
+  Object.keys(fields).forEach(k=>{ if(!(k in was) || String(fields[k])!==String(was[k])) out[k]=fields[k]; });
+  return out;
 }
 function today0(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 function phoneDigits(p){ let d=String(p||'').replace(/\D/g,''); if(d.startsWith('972')) d='0'+d.slice(3); return d; }
@@ -485,7 +506,7 @@ const ICON = {
 
 function leadCard(l){
   const extra=[];
-  if(l.eventDate) extra.push('<span>אירוע '+esc(fmtDate(l.eventDate))+'</span>');
+  if(parseDate(l.eventDate)) extra.push('<span>אירוע '+esc(fmtDate(l.eventDate))+'</span>');
   if(leadValue(l)>0) extra.push('<span>שווי '+esc(money(leadValue(l)))+'</span>');
   if(l.reason && isOut(l)) extra.push('<span>סיבה: '+esc(l.reason)+'</span>');
   const digits = phoneDigits(l.phone);
@@ -505,9 +526,10 @@ function leadCard(l){
     '<div class="lead-form">'+
       '<div class="lf wide"><div class="lf-label">'+ICON.flag+'סטטוס</div>'+
         '<button type="button" class="doc-btn" data-edit="'+l.row+'">תיעוד ליד'+ICON.chev+'</button></div>'+
-      '<div class="lf"><label class="lf-label" for="qf'+l.row+'">'+ICON.cal+'תאריך מעקב</label>'+
-        '<input type="date" id="qf'+l.row+'" data-q="followup" value="'+esc(toInputDate(l.followup))+'"'+(needsFollow(l)?' class="due"':'')+'></div>'+
-      '<div class="lf"><label class="lf-label" for="qn'+l.row+'">'+ICON.note+'הערה</label>'+
+      '<div class="lf wide"><label class="lf-label" for="qf'+l.row+'">'+ICON.cal+'תאריך מעקב</label>'+
+        '<div class="dt"><input type="date" id="qf'+l.row+'" data-q="followup" value="'+esc(toInputDate(l.followup))+'"'+(needsFollow(l)?' class="due"':'')+'>'+
+        '<input type="time" data-q="followTime" aria-label="שעת מעקב" value="'+esc(toInputTime(l.followup))+'"></div></div>'+
+      '<div class="lf wide"><label class="lf-label" for="qn'+l.row+'">'+ICON.note+'הערה</label>'+
         '<input type="text" id="qn'+l.row+'" data-q="notes" value="'+esc(l.notes||'')+'" placeholder="הערה על הליד..."></div>'+
       '<button type="button" class="lf-save" data-save="'+l.row+'">'+ICON.check+'שמור</button>'+
     '</div></div>';
@@ -584,7 +606,10 @@ function renderAll(){ state.dirty=false; renderChips(); renderLeads(); renderFol
    state.dirty מסמן שיש הקלדה שלא נשמרה - כל עוד הוא דולק, הרענון האוטומטי לא דורס אותה. */
 document.addEventListener('input', e=>{ if(e.target.closest('.lead-form')) state.dirty=true; });
 async function quickSave(lead, card, btn){
-  const fields={ followup:card.querySelector('[data-q=followup]').value, notes:card.querySelector('[data-q=notes]').value };
+  const date=card.querySelector('[data-q=followup]').value, time=card.querySelector('[data-q=followTime]').value;
+  if(!date && time){ toast('כדי לשמור שעה צריך לבחור גם תאריך','bad'); return; }
+  const fields=onlyChanged({ followup:joinFollow(date,time), notes:card.querySelector('[data-q=notes]').value }, lead);
+  if(!Object.keys(fields).length){ state.dirty=false; toast('אין שינויים לשמירה'); return; }
   btn.disabled=true;
   try{
     const res=await api('update',{row:lead.row, expect:{name:lead.name, phone:lead.phone}, fields});
@@ -661,6 +686,7 @@ function openEdit(lead){
   if(!lead){ $('fName').value=''; $('fPhone').value=''; }
   $('fEvent').value = lead?toInputDate(lead.eventDate):'';
   $('fFollow').value = lead?toInputDate(lead.followup):'';
+  $('fFollowTime').value = lead?toInputTime(lead.followup):'';
   $('fNotes').value = lead?(lead.notes||''):'';
   $('fClosed').checked = lead?!!lead.closed:false;
   $('fValue').value = lead&&leadValue(lead)>0?leadValue(lead):'';
@@ -676,7 +702,7 @@ $('saveBtn').addEventListener('click', async ()=>{
   const btn=$('saveBtn'); btn.disabled=true; btn.textContent='שומרת...';
   const fields={
     eventDate:$('fEvent').value, status:$('fStatus').value,
-    notes:$('fNotes').value, followup:$('fFollow').value,
+    notes:$('fNotes').value, followup:joinFollow($('fFollow').value, $('fFollowTime').value),
     closed:$('fClosed').checked, value:$('fValue').value
   };
   /* סיבה נכתבת רק עם "לא רלוונטי". ליד שיוצא מהסטטוס הזה - הסיבה מתנקה.
@@ -684,6 +710,7 @@ $('saveBtn').addEventListener('click', async ()=>{
   if(fields.status===OUT_STATUS) fields.reason=$('fReason').value;
   else if(state.editing && state.editing.status===OUT_STATUS) fields.reason='';
   try{
+    if(!$('fFollow').value && $('fFollowTime').value){ toast('כדי לשמור שעה צריך לבחור גם תאריך','bad'); return; }
     if(fields.status===OUT_STATUS && (!fields.reason || !fields.notes.trim())){ openOutPop(); return; }
     let res;
     if(state.adding){
@@ -692,7 +719,9 @@ $('saveBtn').addEventListener('click', async ()=>{
       res=await api('add',{fields:Object.assign({name,phone},fields)});
     }else{
       const l=state.editing;
-      res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields});
+      const changed=onlyChanged(fields, l);
+      if(!Object.keys(changed).length){ closeEdit(); toast('אין שינויים לשמירה'); return; }
+      res=await api('update',{row:l.row, expect:{name:l.name, phone:l.phone}, fields:changed});
     }
     if(res.ok){
       closeEdit(); toast('נשמר בטבלה ✓','ok'); await loadLeads(false);

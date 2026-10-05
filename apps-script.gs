@@ -75,6 +75,7 @@ function listLeads() {
   var leads = [];
   if (lastRow > hr) {
     var vals = sheet.getRange(hr + 1, 1, lastRow - hr, 12).getDisplayValues();
+    var followRaw = sheet.getRange(hr + 1, COL.followup, lastRow - hr, 1).getValues();
     for (var i = 0; i < vals.length; i++) {
       var v = vals[i];
       // שורה נחשבת ליד רק אם יש בה שם, טלפון או תאריך פנייה
@@ -84,7 +85,7 @@ function listLeads() {
         row: hr + 1 + i,
         created: v[0], name: v[1], phone: v[2], campaign: v[3], ad: v[4],
         eventDate: v[5], status: v[6], reason: v[7], notes: v[8],
-        followup: v[9], closed: v[10].toUpperCase() === 'TRUE', value: v[11]
+        followup: followupText(followRaw[i][0], v[9]), closed: v[10].toUpperCase() === 'TRUE', value: v[11]
       });
     }
   }
@@ -206,7 +207,7 @@ function updateLead(req) {
   for (var i = 0; i < writable.length; i++) {
     var key = writable[i];
     if (!(key in fields)) continue;
-    sheet.getRange(row, COL[key]).setValue(toCellValue(key, fields[key]));
+    writeCell(sheet, row, key, fields[key]);
   }
   return { ok: true };
 }
@@ -236,10 +237,31 @@ function addLead(req) {
   for (var j = 0; j < opt.length; j++) {
     var key = opt[j];
     if (key in f && f[key] !== '' && f[key] !== null) {
-      sheet.getRange(row, COL[key]).setValue(toCellValue(key, f[key]));
+      writeCell(sheet, row, key, f[key]);
     }
   }
   return { ok: true, row: row };
+}
+
+// תאריך המעקב נקרא מהערך האמיתי של התא ולא מהתצוגה שלו, כדי שהשעה לא תלך לאיבוד
+// כשהעמודה מעוצבת להציג תאריך בלבד. בלי שעה (חצות) מוחזר תאריך בלבד.
+function followupText(raw, display) {
+  if (!(raw instanceof Date) || isNaN(raw.getTime())) return display;
+  var tz = Session.getScriptTimeZone();
+  var hasTime = Utilities.formatDate(raw, tz, 'HH:mm') !== '00:00';
+  return Utilities.formatDate(raw, tz, hasTime ? 'dd-MM-yyyy HH:mm' : 'dd-MM-yyyy');
+}
+
+// כותב ערך לתא. לתאריך מעקב עם שעה - מעצב את התא כך שהשעה תיראה גם בשיטס;
+// תאריך בלי שעה מחזיר תא שהוצגה בו שעה לתצוגת תאריך בלבד.
+function writeCell(sheet, row, key, val) {
+  var range = sheet.getRange(row, COL[key]);
+  var value = toCellValue(key, val);
+  range.setValue(value);
+  if (key !== 'followup' || !(value instanceof Date)) return;
+  var hasTime = value.getHours() !== 0 || value.getMinutes() !== 0;
+  if (hasTime) range.setNumberFormat('dd/MM/yyyy HH:mm');
+  else if (/h/i.test(range.getNumberFormat())) range.setNumberFormat('dd/MM/yyyy');
 }
 
 // המרת ערכים מהדף לערכי תא: תאריכים כ-Date כדי שאימות הנתונים בשיטס יעבוד
@@ -250,8 +272,9 @@ function toCellValue(key, val) {
     return isNaN(n) || String(val).trim() === '' ? '' : n;
   }
   if (key === 'eventDate' || key === 'followup') {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(val).trim()); // מהדף מגיע yyyy-mm-dd
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    // מהדף מגיע yyyy-mm-dd, ולתאריך מעקב עם שעה: yyyy-mm-ddTHH:MM
+    var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(String(val).trim());
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] || 0), Number(m[5] || 0));
     return String(val);
   }
   return String(val);
